@@ -1,4 +1,4 @@
-from data import get_augmented_dataloader, batch_size
+from data import get_augmented_dataloader
 from models.simclr import SimCLRMain
 from model_utils import feature_extraction, train_lin_eval, train_simclr
 import torch

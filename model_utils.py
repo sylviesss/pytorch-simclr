@@ -159,7 +159,7 @@ def train_lin_eval(features,
                                                        device,
                                                        valid_loader)
     linear_clf.train()
-    lbfgs_optim = torch.optim.LBFGS(linear_clf.parameters(), max_iter=30)
+    lbfgs_optim = torch.optim.LBFGS(linear_clf.parameters(), max_iter=configs['lbfgs_max_iter'])
     loss_fn = torch.nn.CrossEntropyLoss()
     iterator = tqdm(enumerate(range(n_step)), desc='Training the Linear Classification Model ...')
     for i, _ in iterator:
