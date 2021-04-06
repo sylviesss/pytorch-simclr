@@ -2,19 +2,18 @@ import numpy as np
 from torchvision import transforms, datasets
 from torch.utils.data import DataLoader, sampler
 from PIL import Image
+import json
 
 
-cifar10_size = 32
-batch_size = 64
-cifar10_mean_std = {'mean': [0.4914, 0.4822, 0.4465],
-                    'std': [0.2023, 0.1994, 0.2010]}
+with open('configs.json') as f:
+    configs = json.load(f)
 
 
 def compose_augmentation_train(
         flip=True,
-        color_distort_strength=0.5,
-        color_drop_prob=0.2,
-        img_size=cifar10_size,
+        color_distort_strength=configs['color_distort_strength'],
+        color_drop_prob=configs['color_drop_prob'],
+        img_size=configs['cifar10_size'],
         mean_std=None
 ):
     """
@@ -107,11 +106,13 @@ class CIFAR10pair(datasets.CIFAR10):
         if self.transform is not None:
             img1 = self.transform(img)
             img2 = self.transform(img)
+        else:
+            img1, img2 = img, img
         return img1, img2, target
 
 
 def get_augmented_dataloader(root=None,
-                             batch_size=batch_size,
+                             batch_size=configs['batch_size'],
                              train_mode='pretrain',
                              normalize=True):
     """
@@ -135,7 +136,7 @@ def get_augmented_dataloader(root=None,
     if root is None:
         root = './datasets'
     if normalize:
-        mean_std = cifar10_mean_std
+        mean_std = configs['cifar10_mean_std']
     else:
         mean_std = None
 

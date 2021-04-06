@@ -1,0 +1,19 @@
+{
+  "augmentation_params": {
+    "color_distort_strength": 0.5,
+    "color_drop_prob": 0.2
+  },
+  "batch_size": 256,
+  "batch_size_lin_eval": 512,
+  "lr_adam": 1e-3,
+  "n_epoch": 100,
+  "n_epoch_lin_eval": 200,
+  "cifar10_size": 32,
+  "representation_dim": 2048,
+  "feature_dim": 128,
+  "temp": 0.5,
+  "wt_decay": 1e-6,
+  "reg_wt_lin_eval": 1e-3,
+  "cifar10_mean_std": {"mean": [0.4914, 0.4822, 0.4465], "std": [0.2023, 0.1994, 0.2010]},
+  "data_dir": "./datasets"
+}

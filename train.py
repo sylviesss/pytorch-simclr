@@ -1,10 +1,10 @@
 from data import get_augmented_dataloader, batch_size
 from models.simclr import SimCLRMain
-from model_utils import feature_extraction, train_lin_eval, test_lin_eval, train_simclr
+from model_utils import feature_extraction, train_lin_eval, train_simclr
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-
+import json
 
 # need to permute the numpy image in order to display it correctly
 def show(img):
@@ -24,32 +24,35 @@ def denorm(x, channels=None, w=None, h=None, resize=False):
 
 if __name__ == '__main__':
 
-    # set a seed
+    # Set a seed
     if torch.cuda.is_available():
         torch.backends.cudnn.deterministic = True
     torch.manual_seed(0)
-    # args. TODO: create a separate file for these arguments
+
+    # args.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    n_epoch = 100
-    lr = 1e-4
+    with open('configs.json') as f:
+        configs = json.load(f)
 
     # Get data
-    loader_train_simclr = get_augmented_dataloader(batch_size=batch_size,
+    loader_train_simclr = get_augmented_dataloader(batch_size=configs['batch_size'],
                                                    train_mode='pretrain')
     loader_train_clf, loader_eval_clf = get_augmented_dataloader(
-        batch_size=batch_size,
+        batch_size=configs['batch_size_lin_eval'],
         train_mode='lin_eval'
     )
-    loader_test_clf = get_augmented_dataloader(batch_size=batch_size,
+    loader_test_clf = get_augmented_dataloader(batch_size=configs['batch_size_lin_eval'],
                                                train_mode='test')
 
     simclr_model = SimCLRMain()
-    base_optim = torch.optim.Adam(simclr_model.parameters(), lr=lr)
+    base_optim = torch.optim.Adam(simclr_model.parameters(), lr=configs['lr'], weight_decay=configs['wt_decay'])
     train_simclr(model=simclr_model,
                  optimizer=base_optim,
                  loader_train=loader_train_simclr,
                  device=device,
-                 n_epochs=n_epoch)
+                 n_epochs=configs['n_epoch'],
+                 temperature=configs['temp']
+                 )
 
     features_train, targets_train = feature_extraction(
         simclr_model=simclr_model,
@@ -60,6 +63,10 @@ if __name__ == '__main__':
                    targets=targets_train,
                    device=device,
                    simclr_model=simclr_model,
-                   valid_loader=loader_eval_clf)
+                   valid_loader=loader_eval_clf,
+                   representation_dim=configs['representation_dim'],
+                   reg_weight=configs['reg_wt_lin_eval'],
+                   n_step=configs['n_epoch_lin_eval'],
+                   )
 
 
