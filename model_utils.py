@@ -31,7 +31,8 @@ def train_simclr(model,
     Returns: Nothing.
     """
     optimizer.zero_grad()
-    print_every = 100
+    print_every = 100  # print loss every 100 iterations
+    save_every = 10  # save model every 10 epochs
     model = model.to(device=device)
     for e in range(n_epochs):
         for t, (x1, x2, _) in enumerate(loader_train):
@@ -49,7 +50,9 @@ def train_simclr(model,
 
             if t % print_every == 0:
                 print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
-            # torch.save(model.state_dict(), '/storage/simclr_results/simclr_model_bs_{}.pth'.format(batch_size))
+        if (e+1) % save_every == 0:
+            torch.save(model.state_dict(), '/storage/simclr_results/simclr_model_bs{}_epoch{}.pth'.format(configs['batch_size'], e+1))
+    torch.save(model.state_dict(), "/storage/simclr_results/simclr_model_bs_{}.pth".format(configs['batch_size']))
 
 
 def feature_extraction(simclr_model,
