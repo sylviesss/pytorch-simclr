@@ -14,7 +14,8 @@ def train_simclr(model,
                  loader_train,
                  n_epochs,
                  device,
-                 temperature):
+                 temperature,
+                 accum_steps):
     """
     Pretrain a SimCLR model with ResNet50 as the encoder.
 
@@ -24,10 +25,12 @@ def train_simclr(model,
     loader_train (DataLoader): dataloader containing training data.
     temperature (float): temperature used in NT-XENT.
     epochs (int): the number of epochs to train for.
+    accum_steps (int): number of steps to accumulate gradient for.
     device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
 
     Returns: Nothing.
     """
+    optimizer.zero_grad()
     print_every = 100
     model = model.to(device=device)
     for e in range(n_epochs):
@@ -38,13 +41,15 @@ def train_simclr(model,
             _, z1 = model(x1)
             _, z2 = model(x2)
             loss = contrastive_loss(z1.cpu(), z2.cpu(), temperature)
-
-            optimizer.zero_grad()
+            # Gradient accumulation
             loss.backward()
-            optimizer.step()
+            if (t+1) % accum_steps == 0:
+                optimizer.step()
+                optimizer.zero_grad()
 
             if t % print_every == 0:
                 print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
+            # torch.save(model.state_dict(), '/storage/simclr_results/simclr_model_bs_{}.pth'.format(batch_size))
 
 
 def feature_extraction(simclr_model,

@@ -3,8 +3,9 @@
     "color_distort_strength": 0.5,
     "color_drop_prob": 0.2
   },
-  "batch_size": 256,
-  "batch_size_lin_eval": 512,
+  "batch_size": 512,
+  "batch_size_small": 64,
+  "accum_steps": 8,
   "lr_adam": 1e-3,
   "n_epoch": 100,
   "n_epoch_lin_eval": 200,

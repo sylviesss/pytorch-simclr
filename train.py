@@ -35,13 +35,13 @@ if __name__ == '__main__':
         configs = json.load(f)
 
     # Get data
-    loader_train_simclr = get_augmented_dataloader(batch_size=configs['batch_size'],
+    loader_train_simclr = get_augmented_dataloader(batch_size=configs['batch_size_small'],
                                                    train_mode='pretrain')
     loader_train_clf, loader_eval_clf = get_augmented_dataloader(
-        batch_size=configs['batch_size_lin_eval'],
+        batch_size=configs['batch_size'],
         train_mode='lin_eval'
     )
-    loader_test_clf = get_augmented_dataloader(batch_size=configs['batch_size_lin_eval'],
+    loader_test_clf = get_augmented_dataloader(batch_size=configs['batch_size'],
                                                train_mode='test')
 
     simclr_model = SimCLRMain()
@@ -51,6 +51,7 @@ if __name__ == '__main__':
                  loader_train=loader_train_simclr,
                  device=device,
                  n_epochs=configs['n_epoch'],
+                 accum_steps=configs['accum_steps'],
                  temperature=configs['temp']
                  )
 
