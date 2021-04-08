@@ -1,6 +1,6 @@
 from data import get_augmented_dataloader
 from models.simclr import SimCLRMain
-from model_utils import feature_extraction, train_lin_eval, train_simclr
+from utils.model_utils import train_simclr
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     # args.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    with open('configs.json') as f:
+    with open('utils/configs.json') as f:
         configs = json.load(f)
 
     # Get data

@@ -1,6 +1,6 @@
 from data import get_augmented_dataloader
 from models.ssl import SimCLRFineTune
-from model_utils import train_ssl, test_ssl
+from utils.model_utils import train_ssl, test_ssl
 
 import torch
 import json
@@ -14,7 +14,7 @@ if __name__ == '__main__':
 
     # Args.
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    with open('configs.json') as f:
+    with open('utils/configs.json') as f:
         configs = json.load(f)
 
     # Load data.

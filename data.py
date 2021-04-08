@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, sampler
 from PIL import Image
 import json
 
-with open('configs.json') as f:
+with open('utils/configs.json') as f:
     configs = json.load(f)
 
 
