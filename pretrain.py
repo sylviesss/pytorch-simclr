@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 
+
 # need to permute the numpy image in order to display it correctly
 def show(img):
     npimg = img.cpu().numpy()
@@ -20,6 +21,7 @@ def denorm(x, channels=None, w=None, h=None, resize=False):
         if channels is None or w is None or h is None:
             print('Number of channels, width and height must be provided for resize.')
         x = x.view(x.size(0), channels, w, h)
+    return x
 
 
 if __name__ == '__main__':
@@ -54,20 +56,16 @@ if __name__ == '__main__':
                  accum_steps=configs['accum_steps'],
                  temperature=configs['temp']
                  )
-
-    features_train, targets_train = feature_extraction(
-        simclr_model=simclr_model,
-        device=device,
-        loader_lin_eval=loader_train_clf)
-
-    train_lin_eval(features=features_train,
-                   targets=targets_train,
-                   device=device,
-                   simclr_model=simclr_model,
-                   valid_loader=loader_eval_clf,
-                   representation_dim=configs['representation_dim'],
-                   reg_weight=configs['reg_wt_lin_eval'],
-                   n_step=configs['n_epoch_lin_eval'],
-                   )
-
-
+    # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
+    #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
+    #  device=device, loader_lin_eval=loader_train_clf)
+    #
+    # train_lin_eval(features=features_train,
+    #                targets=targets_train,
+    #                device=device,
+    #                simclr_model=simclr_model,
+    #                valid_loader=loader_eval_clf,
+    #                representation_dim=configs['representation_dim'],
+    #                reg_weight=configs['reg_wt_lin_eval'],
+    #                n_step=configs['n_epoch_lin_eval'],
+    #                )

@@ -16,6 +16,8 @@
   "wt_decay": 1e-6,
   "reg_wt_lin_eval": 1e-3,
   "lbfgs_max_iter": 30,
+  "ssl_label_size": 0.1,
+  "n_epoch_ssl": 60,
   "cifar10_mean_std": {"mean": [0.4914, 0.4822, 0.4465], "std": [0.2023, 0.1994, 0.2010]},
   "data_dir": "./datasets"
 }
