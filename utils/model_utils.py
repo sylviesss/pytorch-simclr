@@ -276,7 +276,7 @@ def test_ssl(simclr_ft,
             scores = simclr_ft(img)
             loss = loss_fn(scores, targets)
             losses.append(loss)
-            pred = scores.max(1)
+            _, pred = scores.max(1)
             correct = sum([pred[i] == targets[i] for i in range(targets.shape[0])])
             accuracy = correct / targets.shape[0]
             acc.append(accuracy)
