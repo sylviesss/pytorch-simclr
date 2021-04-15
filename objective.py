@@ -29,7 +29,7 @@ def contrastive_loss(x_batch1,
     else:
         x1, x2 = x_batch1, x_batch2
     labels = torch.arange(2 * batch_size, dtype=torch.long, device=x1.device)
-    masks = torch.eye(batch_size)
+    masks = torch.eye(batch_size, device=x1.device)
 
     # Calculate 4 sets of of cosine similarities and combine them
     logits_aa = (x1 @ x1.t()) / temperature

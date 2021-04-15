@@ -4,7 +4,6 @@ from tqdm import tqdm
 from torch import nn
 import json
 
-
 with open('configs.json') as f:
     configs = json.load(f)
 
@@ -41,17 +40,18 @@ def train_simclr(model,
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss = contrastive_loss(z1.cpu(), z2.cpu(), temperature)
+            loss = contrastive_loss(z1, z2, temperature)
             # Gradient accumulation
             loss.backward()
-            if (t+1) % accum_steps == 0:
+            if (t + 1) % accum_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad()
 
             if t % print_every == 0:
                 print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
-        if (e+1) % save_every == 0:
-            torch.save(model.state_dict(), '/storage/simclr_results/simclr_model_bs{}_epoch{}.pth'.format(configs['batch_size'], e+1))
+        if (e + 1) % save_every == 0:
+            torch.save(model.state_dict(),
+                       '/storage/simclr_results/simclr_model_bs{}_epoch{}.pth'.format(configs['batch_size'], e + 1))
     torch.save(model.state_dict(), "/storage/simclr_results/simclr_model_bs_{}.pth".format(configs['batch_size']))
 
 
@@ -262,7 +262,8 @@ def test_ssl(simclr_ft,
     simclr_ft = simclr_ft.to(device=device)
     simclr_ft.eval()
     loss_fn = nn.CrossEntropyLoss()
-    losses = []; acc = []
+    losses = []
+    acc = []
     t = tqdm(enumerate(loader_test), desc='Testing the fine-tuned SimCLR model ...')
     with torch.no_grad():
         for b, (img, targets) in t:
@@ -272,14 +273,14 @@ def test_ssl(simclr_ft,
             loss = loss_fn(scores, targets)
             losses.append(loss)
             _, pred = scores.max(1)
-            correct = sum([pred[i]==targets[i] for i in range(targets.shape[0])])
+            correct = sum([pred[i] == targets[i] for i in range(targets.shape[0])])
             accuracy = 100. * correct / targets.shape[0]
             acc.append(accuracy)
             t.set_description('batch # {}: Test Loss: {:.3f} | Test Top 1 Accuracy: {:.3f}%'.format(
-                        (b+1), loss.item(), accuracy
-                        )
+                (b + 1), loss.item(), accuracy
+            )
             )
     print('Final Average Test Loss: {:.3f} | Average Test Accuracy: {:.3f}%'.format(
-                        sum(losses)/len(losses), sum(acc)/len(acc)))
+        sum(losses) / len(losses), sum(acc) / len(acc)))
     if return_loss_accuracy:
-        return sum(losses)/len(losses), sum(acc)/len(acc)
+        return sum(losses) / len(losses), sum(acc) / len(acc)
