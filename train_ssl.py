@@ -18,8 +18,8 @@ if __name__ == '__main__':
         configs = json.load(f)
 
     # According to the paper, the learning rate can be configured this way
-    # TODO: stabilize this training process
-    lr_ssl = 0.05 * configs['batch_size_small'] / 256
+    # lr_ssl = 0.05 * configs['batch_size_small'] / 256
+    lr_ssl = 1e-3
 
     # Load data.
     loader_train_ssl = get_augmented_dataloader(
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     simclr_ft = SimCLRFineTune('/content/simclr_model_bs512_nepoch1.pth', device=device)
     # SGD with Nesterov momentum
-    fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=lr_ssl, momentum=0.9, nesterov=True)
+    fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=lr_ssl, momentum=configs['momentum_ssl'], nesterov=True)
 
     train_ssl(
         simclr_ft=simclr_ft,

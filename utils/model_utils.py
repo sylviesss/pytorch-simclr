@@ -225,25 +225,25 @@ def train_ssl(simclr_ft,
     simclr_ft = simclr_ft.to(device=device)
     simclr_ft.train()
     loss_fn = nn.CrossEntropyLoss()
+    # TODO Add loss and accuracy plots
     for e in range(n_epochs):
-        for t, (img, targets) in enumerate(loader_train):
+        for i, (img, targets) in enumerate(loader_train):
             img = img.to(device=device, dtype=torch.float32)
             targets = targets.to(device=device, dtype=torch.long)
             score = simclr_ft(img)
             loss = loss_fn(score, targets)
+
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+
             # Calculate accuracy
             _, pred = score.max(1)
             correct = sum([pred[i] == targets[i] for i in range(targets.shape[0])])
-            if (t + 1) % print_every == 0:
-                accuracy = 100. * correct / targets.shape[0]
-                print(
-                    'epoch {}: Train Loss: {:.3f} | Train Top 1 Accuracy: {:.3f}%'.format(
-                        (e + 1), loss.item(), accuracy
-                    )
-                )
+            accuracy = 100. * correct / targets.shape[0]
+            if (i + 1) % print_every == 0:
+                print('epoch {}: | Train Loss: {:.3f} | Train Top 1 Accuracy: {:.3f}%'.format((e + 1), loss.item(),
+                                                                                              accuracy))
 
 
 def test_ssl(simclr_ft,
@@ -263,10 +263,12 @@ def test_ssl(simclr_ft,
     simclr_ft.eval()
     loss_fn = nn.CrossEntropyLoss()
     losses = []
-    acc = []
-    t = tqdm(enumerate(loader_test), desc='Testing the fine-tuned SimCLR model ...')
+    total_correct = 0
+    total_sample = 0
+    t = tqdm(enumerate(loader_test), desc='Testing the classification model ...')
     with torch.no_grad():
         for b, (img, targets) in t:
+            total_sample += targets.shape[0]
             img = img.to(device=device, dtype=torch.float32)
             targets = targets.to(device=device, dtype=torch.long)
             scores = simclr_ft(img)
@@ -274,13 +276,9 @@ def test_ssl(simclr_ft,
             losses.append(loss)
             _, pred = scores.max(1)
             correct = sum([pred[i] == targets[i] for i in range(targets.shape[0])])
-            accuracy = 100. * correct / targets.shape[0]
-            acc.append(accuracy)
-            t.set_description('batch # {}: Test Loss: {:.3f} | Test Top 1 Accuracy: {:.3f}%'.format(
-                (b + 1), loss.item(), accuracy
-            )
-            )
-    print('Final Average Test Loss: {:.3f} | Average Test Accuracy: {:.3f}%'.format(
-        sum(losses) / len(losses), sum(acc) / len(acc)))
+            total_correct += correct
+    acc = 100. * total_correct / total_sample
+    print('Got %d / %d correct (%.2f)' % (total_correct, total_sample, acc))
+
     if return_loss_accuracy:
-        return sum(losses) / len(losses), sum(acc) / len(acc)
+        return sum(losses) / len(losses), acc

@@ -3,7 +3,7 @@
     "color_distort_strength": 0.5,
     "color_drop_prob": 0.2
   },
-  "batch_size": 512,
+  "default_batch_size": 512,
   "batch_size_small": 64,
   "accum_steps": 8,
   "lr_adam": 1e-3,
@@ -14,6 +14,7 @@
   "feature_dim": 128,
   "temp": 0.5,
   "wt_decay": 1e-6,
+  "momentum_ssl": 0.98,
   "reg_wt_lin_eval": 1e-3,
   "lbfgs_max_iter": 20,
   "ssl_label_size": 0.1,

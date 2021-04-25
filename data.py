@@ -133,6 +133,25 @@ def compose_augmentation_test(crop=False,
     return transforms.Compose(transf)
 
 
+def compose_augmentation_supervised(mean_std=None):
+    """
+    Compose transformations for training the supervised benchmark.
+    """
+    transform = transforms.Compose([
+                                    transforms.ToTensor(),
+                                    transforms.Normalize(
+                                        mean=mean_std['mean'],
+                                        std=mean_std['std']
+                                        ),
+                                    transforms.RandomHorizontalFlip(),
+                                    # transforms.RandomCrop(size=img_size,padding=4)
+                                    # TODO: add affine transformation
+                                    transforms.RandomAffine(degrees=0,
+                                                            translate=(0.3, 0.3))
+                                    ])
+    return transform
+
+
 def get_class_weights(ds,
                       return_wt=True):
     """
@@ -154,8 +173,8 @@ def get_class_weights(ds,
         return class_counts_with_label
 
 
-def get_augmented_dataloader(batch_size,
-                             root=None,
+def get_augmented_dataloader(root=None,
+                             batch_size=configs['default_batch_size'],
                              train_mode='pretrain',
                              normalize=True,
                              **kwargs):
@@ -174,6 +193,9 @@ def get_augmented_dataloader(batch_size,
                        validataion (0.2).
          - 'fine_tune': only random cropping with resizing and random left-to-right
                         flipping is used to preprocess images for fine tuning.
+         - 'supervised_bm': dataset for training a supervised benchmark. Apply
+                            the same augmentations as those that are applied
+                            in contrastive learning.
          - 'test': return the test dataloader.
      normalize (boolean): normalize the dataset if True.
      kwargs can contain ['ssl_label_size' (float)] if train_mode is fine_tune
@@ -185,7 +207,7 @@ def get_augmented_dataloader(batch_size,
     if root is None:
         root = configs['data_dir']
     if normalize:
-        mean_std = configs['cifar10_mean_std']
+        mean_std = configs["cifar10_mean_std"]
     else:
         mean_std = None
     # No validation set for pretrain because labels are not available
@@ -211,7 +233,7 @@ def get_augmented_dataloader(batch_size,
                                          download=False)  # Because it was already downloaded
         num_train = len(valid_dataset)
         indices = list(range(num_train))
-        split = int(np.floor(0.2 * num_train))
+        split = int(np.floor(0 * num_train))
         # Shuffle indices before splitting into train and validation sets
         np.random.shuffle(indices)
 
@@ -248,6 +270,37 @@ def get_augmented_dataloader(batch_size,
                                 shuffle=False,
                                 num_workers=2)
         return ssl_loader
+    elif train_mode == 'supervised_bm':
+        train_dataset = CIFAR10pair(root=root,
+                                    train=True,
+                                    transform=compose_augmentation_supervised(mean_std=mean_std),
+                                    download=True)
+        # Return an additional validation dataloader
+        valid_dataset = datasets.CIFAR10(root=root,
+                                         train=True,
+                                         transform=compose_augmentation_test(mean_std=mean_std),
+                                         download=False)
+        num_train = len(valid_dataset)
+        indices = list(range(num_train))
+        split = int(np.floor(0.2 * num_train))  # TODO: check if validation set is needed
+        # Shuffle indices before splitting into train and validation sets
+        np.random.shuffle(indices)
+
+        train_idx, valid_idx = indices[split:], indices[:split]
+        train_sampler = sampler.SubsetRandomSampler(train_idx)
+        valid_sampler = sampler.SubsetRandomSampler(valid_idx)
+
+        train_loader = DataLoader(train_dataset,
+                                  batch_size=batch_size,
+                                  sampler=train_sampler,
+                                  num_workers=2,
+                                  shuffle=False)
+        valid_loader = DataLoader(valid_dataset,
+                                  batch_size=batch_size,
+                                  sampler=valid_sampler,
+                                  num_workers=2,
+                                  shuffle=False)
+        return train_loader, valid_loader
     # This test set is for testing the classifier (linear evaluation / fine tuning)
     elif train_mode == 'test':
         dataset = datasets.CIFAR10(root=root,
@@ -262,3 +315,4 @@ def get_augmented_dataloader(batch_size,
 
     else:
         raise NotImplementedError
+
