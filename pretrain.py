@@ -59,13 +59,3 @@ if __name__ == '__main__':
     # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
     #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
     #  device=device, loader_lin_eval=loader_train_clf)
-    #
-    # train_lin_eval(features=features_train,
-    #                targets=targets_train,
-    #                device=device,
-    #                simclr_model=simclr_model,
-    #                valid_loader=loader_eval_clf,
-    #                representation_dim=configs['representation_dim'],
-    #                reg_weight=configs['reg_wt_lin_eval'],
-    #                n_step=configs['n_epoch_lin_eval'],
-    #                )

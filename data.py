@@ -137,18 +137,24 @@ def compose_augmentation_supervised(mean_std=None):
     """
     Compose transformations for training the supervised benchmark.
     """
+    # Color distortion
+    color_jitter = transforms.ColorJitter(
+        brightness=0.4,
+        contrast=0.4,
+        saturation=0.4,
+        hue=0.1)
     transform = transforms.Compose([
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(
-                                        mean=mean_std['mean'],
-                                        std=mean_std['std']
-                                        ),
-                                    transforms.RandomHorizontalFlip(),
-                                    # transforms.RandomCrop(size=img_size,padding=4)
-                                    # TODO: add affine transformation
-                                    transforms.RandomAffine(degrees=0,
-                                                            translate=(0.3, 0.3))
-                                    ])
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=mean_std['mean'],
+            std=mean_std['std']
+        ),
+        transforms.RandomHorizontalFlip(),
+        # transforms.RandomCrop(size=img_size,padding=4)
+        transforms.RandomAffine(degrees=0,
+                                translate=(0.3, 0.3)),
+        transforms.RandomApply([color_jitter], p=0.5)
+    ])
     return transform
 
 

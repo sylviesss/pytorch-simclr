@@ -13,8 +13,9 @@ def train_simclr(model,
                  loader_train,
                  n_epochs,
                  device,
+                 accum_steps,
                  temperature,
-                 accum_steps):
+                 checkpt_path=None):
     """
     Pretrain a SimCLR model with ResNet50 as the encoder.
 
@@ -26,21 +27,34 @@ def train_simclr(model,
     epochs (int): the number of epochs to train for.
     accum_steps (int): number of steps to accumulate gradient for.
     device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
+    checkpt_path (str): if resuming training from a checkpoint, provide the path.
 
     Returns: Nothing.
     """
+    if checkpt_path is not None:
+        checkpoint = torch.load(checkpt_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        current_epoch = checkpoint['epoch']
+    else:
+        current_epoch = 0
+
+    # For saving the model
+    sample_inputs, _, _ = next(iter(loader_train))
+    fixed_input = sample_inputs[:32, :, :, :]
+
     optimizer.zero_grad()
-    print_every = 100  # print loss every 100 iterations
-    save_every = 10  # save model every 10 epochs
+    print_every = 100
+    # save_every = 20  # save model every x epochs
     model = model.to(device=device)
-    for e in range(n_epochs):
+    for e in range(current_epoch, n_epochs):
         for t, (x1, x2, _) in enumerate(loader_train):
             model.train()
             x1 = x1.to(device=device, dtype=torch.float32)
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss = contrastive_loss(z1, z2, temperature)
+            loss = contrastive_loss(z1.cpu(), z2.cpu(), temperature)
             # Gradient accumulation
             loss.backward()
             if (t + 1) % accum_steps == 0:
@@ -49,22 +63,35 @@ def train_simclr(model,
 
             if t % print_every == 0:
                 print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
-        if (e + 1) % save_every == 0:
-            torch.save(model.state_dict(),
-                       '/storage/simclr_results/simclr_model_bs{}_epoch{}.pth'.format(configs['batch_size'], e + 1))
-    torch.save(model.state_dict(), "/storage/simclr_results/simclr_model_bs_{}.pth".format(configs['batch_size']))
+
+        if (e + 1) % configs["save_checkpt_every"] == 0:
+            torch.save({
+                'epoch': e,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss.item(),
+            }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}.pth".format(
+                configs["batch_size_small"] * configs["accum_steps"],
+                (e + 1)))
+    # save the model
+    model.eval()
+    with torch.no_grad():
+        torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
+                       "/vol/bitbucket/ss9920/project-results/simclr_model_bs{}_nepoch{}.pth".format(
+                           configs["batch_size_small"] * configs["accum_steps"],
+                           n_epochs))
 
 
 def feature_extraction(simclr_model,
                        device,
-                       loader_lin_eval):
+                       loader):
     """
     Extract features from a pretrained SimCLR model using training dataset
     extracted in mode 'lin_eval'.
     Args:
         simclr_model: pretrained SimCLRMain.
         device (torch.device): 'cuda' or 'cpu' (depending on the availability of a gpu).
-        loader_lin_eval: dataloader with data extracted with the function
+        loader: dataloader with data extracted with the function
                          get_augmented_dataloader in mode 'lin_eval'
                          (training set without augmentation)
     Returns: extracted features with corresponding labels for each image.
@@ -72,7 +99,7 @@ def feature_extraction(simclr_model,
     simclr_model.eval()
     features, targets = [], []
     with torch.no_grad():
-        for img, tgt in tqdm(loader_lin_eval, desc='extracting features ...'):
+        for img, tgt in tqdm(loader, desc='extracting features ...'):
             targets.append(tgt)
             img = img.to(device=device, dtype=torch.float32)
             feature, _ = simclr_model(img)
@@ -83,28 +110,25 @@ def feature_extraction(simclr_model,
 
 
 def test_lin_eval(clf_model,
-                  features_valid,
-                  targets_valid,
-                  device,
-                  n_epoch,
-                  best_acc=0.
-                  ):
+                  simclr_model,
+                  loader_test,
+                  device):
     """
-    Using features extracted from simclr_model, evaluate clf_model.
+    Extract features with the pretrained simclr_model and test clf_model.
     Args:
         clf_model: trained linear classifier.
-        features_valid: features extracted from the validation dataset.
-        targets_valid: targets extracted from the validation dataset.
+        simclr_model: pretrained simclr model.
+        loader_test: data loader with test data.
         device (torch.device): 'cuda' or 'cpu'.
-        n_epoch (int): only used for printing statements.
-        best_acc (float): keeps track of the best accuracy so far. If
-                          the new accuracy is better, save the model.
     Returns:
-        loss: CE loss without the regularization term.
+        loss: CE loss.
         top1_acc: accuracy.
-        top5_acc: count if the correct class appears in the top 5 classes
-                  with largest probabilities.
     """
+    features_valid, targets_valid = feature_extraction(
+        simclr_model=simclr_model,
+        device=device,
+        loader=loader_test
+    )
     clf_model.eval()
     loss_fn = torch.nn.CrossEntropyLoss()
     with torch.no_grad():
@@ -112,28 +136,21 @@ def test_lin_eval(clf_model,
         targets = targets_valid.to(device=device, dtype=torch.long)
         loss = loss_fn(preds, targets)
         _, predicted = preds.max(1)
-        top5_preds = torch.topk(preds, k=5, dim=1).indices
         correct = predicted.eq(targets).sum().item()
-        top5_correct = sum([targets[i] in top5_preds[i] for i in range(targets.shape[0])])
         top1_acc = 100. * correct / targets.shape[0]
-        top5_acc = 100. * top5_correct / targets.shape[0]
-        print(
-            'epoch {}: Validation Loss: {:.3f} | Validation Top 1 Accuracy: {:.3f}% | Validation Top 5 Accuracy {:.3f}%'.format(
-                (n_epoch + 1), loss, top1_acc, top5_acc))
-        if top1_acc > best_acc:
-            print("Found a better model. Saving ...")
-            torch.save(clf_model.state_dict(), 'results/clf_model_bs_{}_{}.pth'.format(configs['batch_size'],
-                                                                                       configs['batch_size_lin_eval']))
-        else:
-            top1_acc = best_acc
-    return top1_acc
+        # Do not print top5 accuracy for CIFAR10 because with only 10 classes it is always going to be quite high
+        # top5_preds = torch.topk(preds, k=5, dim=1).indices
+        # top5_correct = sum([targets[i] in top5_preds[i] for i in range(targets.shape[0])])
+        # top5_acc = 100. * top5_correct / targets.shape[0]
+    print(
+        'Test Loss: {:.4f} | Test Top 1 Accuracy: {:.4f}%'.format(loss, top1_acc)
+    )
+    return loss, top1_acc
 
 
 def train_lin_eval(features,
                    targets,
                    device,
-                   simclr_model,
-                   valid_loader,
                    representation_dim,
                    reg_weight,
                    n_step,
@@ -147,8 +164,6 @@ def train_lin_eval(features,
         targets (tensor): indexes of corresponding class of images from which
                          the features were extracted.
         device (torch.device): 'cuda' or 'cpu'.
-        simclr_model: pretrained SimCLR model used in validation.
-        valid_loader: dataloader with images for validation.
         representation_dim (int): dimension of features
                                   (dimension of the inputs to the projection head).
         reg_weight (float): weight of L2 regularization.
@@ -156,16 +171,12 @@ def train_lin_eval(features,
         n_class (int): number of classes.
     Returns: the trained linear classifier.
     """
-    best_acc = 0.
     linear_clf = nn.Sequential(
         nn.Flatten(),
         nn.Linear(in_features=representation_dim,
                   out_features=n_class)
     ).to(device)
-    # Obtain features from the validation set for testing
-    features_valid, targets_valid = feature_extraction(simclr_model,
-                                                       device,
-                                                       valid_loader)
+
     linear_clf.train()
     lbfgs_optim = torch.optim.LBFGS(linear_clf.parameters(), max_iter=configs['lbfgs_max_iter'])
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -191,14 +202,6 @@ def train_lin_eval(features,
             return loss
 
         lbfgs_optim.step(closure)
-        # Validation
-        best_acc = test_lin_eval(
-            clf_model=linear_clf,
-            features_valid=features_valid,
-            targets_valid=targets_valid,
-            device=device,
-            n_epoch=i,
-            best_acc=best_acc)
 
     return linear_clf
 
