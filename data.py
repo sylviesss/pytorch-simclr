@@ -40,8 +40,8 @@ class CIFAR10pair(datasets.CIFAR10):
 
 def compose_augmentation_train(
         flip=True,
-        color_distort_strength=configs['color_distort_strength'],
-        color_drop_prob=configs['color_drop_prob'],
+        color_distort_strength=configs['augmentation_params']['color_distort_strength'],
+        color_drop_prob=configs['augmentation_params']['color_drop_prob'],
         img_size=configs['cifar10_size'],
         mean_std=None
 ):

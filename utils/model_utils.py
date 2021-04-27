@@ -4,7 +4,7 @@ from tqdm import tqdm
 from torch import nn
 import json
 
-with open('configs.json') as f:
+with open('utils/configs.json') as f:
     configs = json.load(f)
 
 
