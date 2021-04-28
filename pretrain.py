@@ -42,7 +42,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Get data
-    loader_train_simclr = get_augmented_dataloader(batch_size=configs['batch_size_small'],
+    loader_train_simclr = get_augmented_dataloader(batch_size=args.batch_size,
                                                    train_mode='pretrain')
 
     simclr_model = SimCLRMain()

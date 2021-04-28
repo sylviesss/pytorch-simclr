@@ -18,7 +18,6 @@ def contrastive_loss(x_batch1,
                             function.
       weight (tensor): weights for loss of each sample in the minibatch.
     """
-    # Why do we need this?
     VERY_LARGE_NUM = 1e9
 
     batch_size = x_batch1.shape[0]
@@ -27,21 +26,25 @@ def contrastive_loss(x_batch1,
         x1 = F.normalize(x_batch1, p=2, dim=1)
         x2 = F.normalize(x_batch2, p=2, dim=1)
     else:
-        x1, x2 = x_batch1, x_batch2
+        x1 = x_batch1
+        x2 = x_batch2
     labels = torch.arange(2 * batch_size, dtype=torch.long, device=x1.device)
     masks = torch.eye(batch_size, device=x1.device)
 
     # Calculate 4 sets of of cosine similarities and combine them
     logits_aa = (x1 @ x1.t()) / temperature
-    logits_aa = logits_aa - masks * VERY_LARGE_NUM
     logits_bb = (x2 @ x2.t()) / temperature
+    # When calculating the loss, we do not want to include similarity of a representation with itself, so we set the
+    # diagonal entries to a very negative number, to make their contributions to the nce loss almost 0
+    logits_aa = logits_aa - masks * VERY_LARGE_NUM
     logits_bb = logits_bb - masks * VERY_LARGE_NUM
+    # Negative samples
     logits_ab = (x1 @ x2.t()) / temperature
     logits_ba = (x2 @ x1.t()) / temperature
 
     # Use sum of losses to be consistent with the tf implementation
     # (Reduction.SUM_BY_NONZERO_WEIGHTS)
-    loss_fn = nn.CrossEntropyLoss(weight=weight, reduction='sum')
+    loss_fn = nn.CrossEntropyLoss(weight=weight, reduction='mean')
     logits = torch.cat([torch.cat([logits_ab, logits_aa], dim=-1),
                         torch.cat([logits_bb, logits_ba], dim=-1)], dim=0)
     loss = loss_fn(logits, labels)

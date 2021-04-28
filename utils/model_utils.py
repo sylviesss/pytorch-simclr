@@ -127,8 +127,7 @@ def train_simclr_no_accum(model,
     sample_inputs, _, _ = next(iter(loader_train))
     fixed_input = sample_inputs[:32, :, :, :]
 
-    optimizer.zero_grad()
-    print_every = 100
+    print_every = len(loader_train)/4
     model = model.to(device=device)
     for e in range(current_epoch, n_epochs):
         for t, (x1, x2, _) in enumerate(loader_train):
@@ -139,9 +138,9 @@ def train_simclr_no_accum(model,
             _, z2 = model(x2)
             loss = contrastive_loss(z1, z2, temperature)
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
 
             if t % print_every == 0:
                 print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
