@@ -1,5 +1,5 @@
 import torch
-import torch.functional as F
+import torch.nn.functional as F
 from torch import nn
 
 
@@ -13,7 +13,7 @@ def contrastive_loss(x_batch1,
     Args:
       x_batch* (tensor): minibatches of augmented samples of shape
                         (batch_size, out_dim).
-      temperature (float): for teperature scaling.
+      temperature (float): for temperature scaling.
       normalize (boolean):  indicate whether we normalize the input to the loss
                             function.
       weight (tensor): weights for loss of each sample in the minibatch.

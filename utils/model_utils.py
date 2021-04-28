@@ -15,6 +15,8 @@ def train_simclr(model,
                  device,
                  accum_steps,
                  temperature,
+                 save_every,
+                 save_ckpt=True,
                  checkpt_path=None):
     """
     Pretrain a SimCLR model with ResNet50 as the encoder.
@@ -25,8 +27,90 @@ def train_simclr(model,
     loader_train (DataLoader): dataloader containing training data.
     temperature (float): temperature used in NT-XENT.
     epochs (int): the number of epochs to train for.
-    accum_steps (int): number of steps to accumulate gradient for.
     device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
+    accum_steps (int): number of steps to accumulate gradients.
+    save_every (int): frequency for saving the model.
+    save_ckpt (bool): indicate whether to save checkpoints.
+    checkpt_path (str): if resuming training from a checkpoint, provide the path.
+
+    Returns: Nothing.
+    """
+    if checkpt_path is not None:
+        checkpoint = torch.load(checkpt_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        current_epoch = checkpoint['epoch']
+    else:
+        current_epoch = 0
+
+    total_batch_size = int(configs["batch_size_small"] * accum_steps)
+
+    # For saving the model
+    sample_inputs, _, _ = next(iter(loader_train))
+    fixed_input = sample_inputs[:32, :, :, :]
+
+    optimizer.zero_grad()
+    print_every = 100
+    model = model.to(device=device)
+    for e in range(current_epoch, n_epochs):
+        for t, (x1, x2, _) in enumerate(loader_train):
+            model.train()
+            x1 = x1.to(device=device, dtype=torch.float32)
+            x2 = x2.to(device=device, dtype=torch.float32)
+            _, z1 = model(x1)
+            _, z2 = model(x2)
+            loss = contrastive_loss(z1, z2, temperature) / accum_steps
+            # Gradient accumulation
+            loss.backward()
+            if (t + 1) % accum_steps == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+
+            if t % print_every == 0:
+                print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
+        if save_ckpt:
+            if (e + 1) % save_every == 0:
+                torch.save({
+                    'epoch': e,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': loss.item(),
+                }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}.pth".format(
+                    total_batch_size,
+                    (e + 1)))
+        else:
+            pass
+    # save the model
+    model.eval()
+    with torch.no_grad():
+        torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
+                       "/vol/bitbucket/ss9920/project-results/simclr_model_bs{}_nepoch{}.pth".format(
+                           total_batch_size,
+                           n_epochs))
+
+
+def train_simclr_no_accum(model,
+                          optimizer,
+                          loader_train,
+                          n_epochs,
+                          device,
+                          temperature,
+                          save_every,
+                          batch_size,
+                          save_ckpt=True,
+                          checkpt_path=None):
+    """
+    Pretrain a SimCLR model with ResNet50 as the encoder.
+
+    Args:
+    model: A SimCLRMain model.
+    optimizer: An Optimizer object we will use to train the model.
+    loader_train (DataLoader): dataloader containing training data.
+    temperature (float): temperature used in NT-XENT.
+    epochs (int): the number of epochs to train for.
+    device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
+    save_every (int): frequency for saving the model.
+    save_ckpt (bool): indicate whether to save checkpoints.
     checkpt_path (str): if resuming training from a checkpoint, provide the path.
 
     Returns: Nothing.
@@ -45,7 +129,6 @@ def train_simclr(model,
 
     optimizer.zero_grad()
     print_every = 100
-    # save_every = 20  # save model every x epochs
     model = model.to(device=device)
     for e in range(current_epoch, n_epochs):
         for t, (x1, x2, _) in enumerate(loader_train):
@@ -54,31 +137,32 @@ def train_simclr(model,
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss = contrastive_loss(z1.cpu(), z2.cpu(), temperature)
-            # Gradient accumulation
+            loss = contrastive_loss(z1, z2, temperature)
+
             loss.backward()
-            if (t + 1) % accum_steps == 0:
-                optimizer.step()
-                optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()
 
             if t % print_every == 0:
                 print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
-
-        if (e + 1) % configs["save_checkpt_every"] == 0:
-            torch.save({
-                'epoch': e,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss.item(),
-            }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}.pth".format(
-                configs["batch_size_small"] * configs["accum_steps"],
-                (e + 1)))
+        if save_ckpt:
+            if (e + 1) % save_every == 0:
+                torch.save({
+                    'epoch': e,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': loss.item(),
+                }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}.pth".format(
+                    batch_size,
+                    (e + 1)))
+        else:
+            pass
     # save the model
     model.eval()
     with torch.no_grad():
         torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
                        "/vol/bitbucket/ss9920/project-results/simclr_model_bs{}_nepoch{}.pth".format(
-                           configs["batch_size_small"] * configs["accum_steps"],
+                           batch_size,
                            n_epochs))
 
 

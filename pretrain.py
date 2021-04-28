@@ -1,27 +1,29 @@
 from data import get_augmented_dataloader
 from models.simclr import SimCLRMain
-from utils.model_utils import train_simclr
+from utils.model_utils import train_simclr, train_simclr_no_accum
 import torch
-import matplotlib.pyplot as plt
-import numpy as np
 import json
+from argparse import ArgumentParser
 
 
-# need to permute the numpy image in order to display it correctly
-def show(img):
-    npimg = img.cpu().numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-
-
-# Denormalize images for visualization
-def denorm(x, channels=None, w=None, h=None, resize=False):
-    x = 0.5 * (x + 1)
-    x = x.clamp(0, 1)
-    if resize:
-        if channels is None or w is None or h is None:
-            print('Number of channels, width and height must be provided for resize.')
-        x = x.view(x.size(0), channels, w, h)
-    return x
+def create_parser(configs):
+    parser = ArgumentParser()
+    parser.add_argument('--n_epoch',
+                        default=configs['n_epoch'],
+                        type=int,
+                        help='number of epochs to train')
+    parser.add_argument('--accum_steps',
+                        default=configs['accum_steps'],
+                        type=int,
+                        help='number of gradient accumulation steps; total batch size is 64*accum_steps')
+    parser.add_argument('--save_every',
+                        default=configs['save_ckpt_every'],
+                        type=int,
+                        help='frequency for saving checkpoint during training')
+    parser.add_argument('--batch_size',
+                        default=configs['default_batch_size'],
+                        type=int)
+    return parser
 
 
 if __name__ == '__main__':
@@ -36,26 +38,24 @@ if __name__ == '__main__':
     with open('utils/configs.json') as f:
         configs = json.load(f)
 
+    parser = create_parser(configs)
+    args = parser.parse_args()
+
     # Get data
     loader_train_simclr = get_augmented_dataloader(batch_size=configs['batch_size_small'],
                                                    train_mode='pretrain')
-    loader_train_clf, loader_eval_clf = get_augmented_dataloader(
-        batch_size=configs['batch_size'],
-        train_mode='lin_eval'
-    )
-    loader_test_clf = get_augmented_dataloader(batch_size=configs['batch_size'],
-                                               train_mode='test')
 
     simclr_model = SimCLRMain()
     base_optim = torch.optim.Adam(simclr_model.parameters(), lr=configs['lr'], weight_decay=configs['wt_decay'])
-    train_simclr(model=simclr_model,
-                 optimizer=base_optim,
-                 loader_train=loader_train_simclr,
-                 device=device,
-                 n_epochs=configs['n_epoch'],
-                 accum_steps=configs['accum_steps'],
-                 temperature=configs['temp']
-                 )
+    train_simclr_no_accum(model=simclr_model,
+                          optimizer=base_optim,
+                          loader_train=loader_train_simclr,
+                          device=device,
+                          n_epochs=args.n_epoch,
+                          save_every=args.save_every,
+                          batch_size=args.batch_size,
+                          temperature=configs['temp']
+                          )
     # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
     #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
     #  device=device, loader_lin_eval=loader_train_clf)

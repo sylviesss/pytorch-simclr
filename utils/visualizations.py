@@ -2,6 +2,7 @@ from sklearn import manifold
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
+import numpy as np
 
 from data import get_augmented_dataloader
 
@@ -176,3 +177,20 @@ def get_tsne_representations(model,
         plt.title(f"T-SNE plot: perplexity={perplexity}")
         plt.show()
     return X_tsne
+
+
+# need to permute the numpy image in order to display it correctly
+def show(img):
+    npimg = img.cpu().numpy()
+    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+
+
+# Denormalize images for visualization
+def denorm(x, channels=None, w=None, h=None, resize=False):
+    x = 0.5 * (x + 1)
+    x = x.clamp(0, 1)
+    if resize:
+        if channels is None or w is None or h is None:
+            print('Number of channels, width and height must be provided for resize.')
+        x = x.view(x.size(0), channels, w, h)
+    return x
