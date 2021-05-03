@@ -23,5 +23,6 @@
   "n_epoch_ssl": 30,
   "cifar10_mean_std": {"mean": [0.4914, 0.4822, 0.4465], "std": [0.2023, 0.1994, 0.2010]},
   "stl10_mean_std": {},
-  "data_dir": "./datasets"
+  "data_dir": "./datasets",
+  "doc_path": "/vol/bitbucket/ss9920/project-results/"
 }

@@ -1,6 +1,6 @@
 from data import AugmentedLoader
 from models.simclr import SimCLRMain
-from utils.model_utils import train_simclr, train_simclr_no_accum
+from utils.model_utils import train_simclr
 import torch
 import json
 from argparse import ArgumentParser
@@ -27,6 +27,10 @@ def create_parser(configs):
                         default='cifar10',
                         type=str,
                         help='Choose from "cifar10" or "stl10"')
+    parser.add_argument('--path_for_saving',
+                        default=configs['doc_path'],
+                        type=str,
+                        help='path for saving models and checkpoints (should include / at the end)')
     return parser
 
 
