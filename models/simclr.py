@@ -4,6 +4,7 @@ from models.modified_resnet import ResnetEncoder
 
 class SimCLRMain(nn.Module):
     def __init__(self,
+                 cifar,
                  encoder_dim=2048,
                  output_dim=128,
                  encoder_model='resnet50',
@@ -15,7 +16,7 @@ class SimCLRMain(nn.Module):
         self.num_proj_layer = num_proj_layer
 
         if encoder_model == 'resnet50':
-            self.f = ResnetEncoder()
+            self.f = ResnetEncoder(cifar=cifar)
         else:
             raise NotImplementedError
 

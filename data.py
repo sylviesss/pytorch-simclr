@@ -19,7 +19,7 @@ class CIFAR10pair(datasets.CIFAR10):
     def __getitem__(self, idx):
         """
         Modify the method __getitem__
-        (https://github.com/pytorch/vision/blob/19ad0bbc5e26504a501b9be3f0345381d6ba1efc/torchvision/datasets/cifar.py#L105)
+        (https://pytorch.org/vision/stable/_modules/torchvision/datasets/cifar.html#CIFAR10)
         in class CIFAR10 to produce two transformed images per original image,
         along with their target.
         Args:
@@ -38,20 +38,49 @@ class CIFAR10pair(datasets.CIFAR10):
         return img1, img2, target
 
 
+class STL10pair(datasets.STL10):
+    def __init__(self, root, split, transform, download):
+        super(STL10pair, self).__init__(root=root,
+                                        split=split,
+                                        transform=transform,
+                                        download=download)
+
+    def __getitem__(self, idx):
+        """
+        Modifying the method __getitem__
+        (https://pytorch.org/vision/stable/_modules/torchvision/datasets/stl10.html#STL10)
+        in class STL10 to produce two transformed images per original image,
+        along with their target.
+        Args:
+          idx (int): Index
+        Returns:
+          tuple: (augmented_img1, augmented_img2, target) where target is index
+          of the target class.
+        """
+        img, target = self.data[idx], self.labels[idx]
+        img = Image.fromarray(np.transpose(img, (1, 2, 0)))
+        if self.transform is not None:
+            img1 = self.transform(img)
+            img2 = self.transform(img)
+        else:
+            img1, img2 = img, img
+        return img1, img2, target
+
+
 def compose_augmentation_train(
+        img_size,
         flip=True,
         color_distort_strength=configs['augmentation_params']['color_distort_strength'],
         color_drop_prob=configs['augmentation_params']['color_drop_prob'],
-        img_size=configs['cifar10_size'],
         mean_std=None
 ):
     """
     Compose transformations for training image data.
     Args:
+      img_size (int/tuple): size of the original image in dataset.
       flip (boolean): whether to randomly flip images.
       color_distort_strength: strength on color distortion.
       color_drop_prob: probability of randomly converting an image to gray scale.
-      img_size (int/tuple): size of the original image in dataset.
       mean_std (dict): mean and standard deviation used to normalize dataset.
     Returns:
       A sequence of transformations.
@@ -88,15 +117,15 @@ def compose_augmentation_train(
     return transforms.Compose(transf)
 
 
-def compose_augmentation_fine_tune(flip=True,
-                                   mean_std=None,
-                                   img_size=configs['cifar10_size']):
+def compose_augmentation_fine_tune(img_size,
+                                   flip=True,
+                                   mean_std=None):
     """
     Compose a transformation for fine tuning.
     Args:
+     img_size (int/tuple): size of the original image in dataset.
      flip (boolean): whether to randomly flip images.
      mean_std (dict): mean and standard deviation used to normalize dataset.
-     img_size (int/tuple): size of the original image in dataset.
     Returns:
      A sequence of transformations.
     """
@@ -179,11 +208,12 @@ def get_class_weights(ds,
         return class_counts_with_label
 
 
-def get_augmented_dataloader(root=None,
-                             batch_size=configs['default_batch_size'],
-                             train_mode='pretrain',
-                             normalize=True,
-                             **kwargs):
+def get_cifar10_dataloader(img_size,
+                           batch_size,
+                           root=None,
+                           train_mode='pretrain',
+                           ssl_label_size=1,
+                           mean_std=None):
     """
     Args:
      root (str): directory to put data in. If None, save data in a
@@ -203,24 +233,21 @@ def get_augmented_dataloader(root=None,
                             the same augmentations as those that are applied
                             in contrastive learning.
          - 'test': return the test dataloader.
-     normalize (boolean): normalize the dataset if True.
-     kwargs can contain ['ssl_label_size' (float)] if train_mode is fine_tune
+     ssl_label_size (float): how much label to use for ssl.
+     mean_std (dict): dictionary with keys 'mean' and 'std'.
     Returns:
      DataLoader(s): (img1, img2, target)
     """
     np.random.seed(42)
-    ssl_label_size = kwargs.get('ssl_label_size', 1)  # 1%/10% from the paper
     if root is None:
         root = configs['data_dir']
-    if normalize:
-        mean_std = configs["cifar10_mean_std"]
-    else:
-        mean_std = None
+
     # No validation set for pretrain because labels are not available
     if train_mode == 'pretrain':
         dataset = CIFAR10pair(root=root,
                               train=True,
-                              transform=compose_augmentation_train(mean_std=mean_std),
+                              transform=compose_augmentation_train(img_size=img_size,
+                                                                   mean_std=mean_std),
                               download=True)
         loader = DataLoader(dataset,
                             batch_size=batch_size,
@@ -261,7 +288,9 @@ def get_augmented_dataloader(root=None,
     elif train_mode == 'fine_tune':
         dataset = datasets.CIFAR10(root=root,
                                    train=True,
-                                   transform=compose_augmentation_fine_tune(mean_std=mean_std),
+                                   transform=compose_augmentation_fine_tune(
+                                       img_size=img_size,
+                                       mean_std=mean_std),
                                    download=True)
         num_train = len(dataset)
         # Q: What if in real life the labelled data is not uniformly distributed? Does it matter??
@@ -321,4 +350,122 @@ def get_augmented_dataloader(root=None,
 
     else:
         raise NotImplementedError
+
+
+def get_stl10_dataloader(img_size,
+                         batch_size,
+                         train_mode='pretrain',
+                         root=None,
+                         mean_std=None):
+    """
+    Args:
+     img_size (int/tuple): for resizing.
+     batch_size (int): size of minibatch.
+     root (str): directory to put data in. If None, save data in a default
+                 directory.
+     train_mode (str): choose a mode from ['pretrain', 'fine_tune', 'test'].
+         - 'pretrain': two augmented images are created for each
+                       original image. Returns one dataloader for training.
+         - 'fine_tune': only random cropping with resizing and random left-to-right
+                        flipping is used to preprocess images for fine tuning.
+         - 'test': return the test dataloader.
+     mean_std (dict): dictionary with keys 'mean' and 'std'.
+    Returns:
+     DataLoader(s): (img1, img2, target)
+    """
+    np.random.seed(42)
+    if root is None:
+        root = configs['data_dir']
+
+    if train_mode == 'pretrain':
+        dataset = STL10pair(root=root,
+                            split='unlabeled',
+                            transform=compose_augmentation_train(
+                                img_size=img_size,
+                                mean_std=mean_std
+                            ),
+                            download=True)
+        dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=2)
+    elif train_mode == 'fine_tune':
+        dataset = datasets.STL10(root=root,
+                                 split='train',
+                                 transform=compose_augmentation_fine_tune(
+                                     img_size=img_size,
+                                     mean_std=mean_std
+                                 ),
+                                 download=True)
+        # TODO: check whether to shuffle; maybe not because they have 10 predefined folds
+        dataloader = DataLoader(dataset, batch_size, num_workers=2)
+    elif train_mode == 'test':
+        dataset = datasets.STL10(root=root,
+                                 split='test',
+                                 transform=compose_augmentation_test(mean_std=mean_std),
+                                 download=True)
+        dataloader = DataLoader(dataset, batch_size, shuffle=False, num_workers=2)
+    else:
+        raise NotImplementedError
+    return dataloader
+
+
+class AugmentedLoader:
+    def __init__(self,
+                 dataset_name,
+                 train_mode,
+                 batch_size,
+                 cfgs):
+        """
+        dataset_name: Select from ['cifar10', 'stl10']
+        train_mode: select from ['pretrain', 'fine_tune', 'test',
+                                'lin_eval', 'supervised_bm'] (last two are for cifar for now )
+        batch_size: size of minibatchs in the dataloader
+        cfgs: configurations loaded from configs.json
+        """
+        self.dataset = dataset_name
+        self.train_mode = train_mode
+        self.batch_size = batch_size
+
+        # Train / test data depending on train_mode
+        self.loader = None
+        self.valid_loader = None
+
+        self._load(cfgs)
+
+    def _load(self, cfgs):
+        """
+        Load dataloaders.
+        """
+        img_size = cfgs[self.dataset+'_size']
+        if len(cfgs[self.dataset+'_mean_std']) != 0:
+            mean_std = cfgs[self.dataset+'_mean_std']
+        else:
+            mean_std = None
+        if self.dataset == 'cifar10':
+            loader = get_cifar10_dataloader(
+                img_size=img_size,
+                batch_size=self.batch_size,
+                root=cfgs['data_dir'],
+                train_mode=self.train_mode,
+                ssl_label_size=cfgs['ssl_label_size'],
+                mean_std=mean_std)
+        elif self.dataset == 'stl10':
+            if self.train_mode not in ['pretrain', 'fine_tune', 'test']:
+                # TODO: add a dataset for linear evaluation for stl10
+                raise NotImplementedError
+            else:
+                loader = get_stl10_dataloader(img_size=img_size,
+                                              batch_size=self.batch_size,
+                                              train_mode=self.train_mode,
+                                              root=cfgs['data_dir'],
+                                              mean_std=mean_std)
+        else:
+            raise NotImplementedError
+
+        if isinstance(loader, tuple):
+            self.loader = loader[0]
+            self.valid_loader = loader[1]
+        else:
+            self.loader = loader
+
+
+
 

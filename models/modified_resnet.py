@@ -5,9 +5,9 @@ import torch
 
 class ResnetEncoder(models.resnet.ResNet):
     def __init__(self,
+                 cifar,
                  block=models.resnet.Bottleneck,
-                 layers=[3, 4, 6, 3],
-                 cifar=True):
+                 layers=[3, 4, 6, 3]):
         super(ResnetEncoder, self).__init__(block=block, layers=layers)
         self.cifar = cifar
 
@@ -45,9 +45,9 @@ class Identity(nn.Module):
 
 class ResnetSupervised(models.resnet.ResNet):
     def __init__(self,
+                 cifar,
                  blocks=models.resnet.Bottleneck,
                  layers=[3, 4, 6, 3],
-                 cifar=True,
                  n_class=10):
         super(ResnetSupervised, self).__init__(block=blocks,
                                                layers=layers,

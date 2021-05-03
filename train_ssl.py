@@ -1,10 +1,9 @@
-from data import get_augmented_dataloader
+from data import AugmentedLoader
 from models.ssl import SimCLRFineTune
 from utils.model_utils import train_ssl, test_ssl
 
 import torch
 import json
-
 
 if __name__ == '__main__':
     # Set a seed.
@@ -22,18 +21,19 @@ if __name__ == '__main__':
     lr_ssl = 1e-3
 
     # Load data.
-    loader_train_ssl = get_augmented_dataloader(
-        batch_size=configs['batch_size'],
-        train_mode='fine_tune',
-        ssl_label_size=configs['ssl_label_size'])
-    loader_test = get_augmented_dataloader(
-        batch_size=configs['batch_size'],
-        train_mode='test'
-    )
+    loader_train_ssl = AugmentedLoader(dataset_name='cifar10',
+                                       train_mode='fine_tune',
+                                       batch_size=configs['batch_size_small'],
+                                       cfgs=configs).loader
+    loader_test = AugmentedLoader(dataset_name='cifar10',
+                                  train_mode='test',
+                                  batch_size=configs['batch_size_small'],
+                                  cfgs=configs)
 
-    simclr_ft = SimCLRFineTune('/content/simclr_model_bs512_nepoch1.pth', device=device)
+    simclr_ft = SimCLRFineTune('/content/simclr_model_bs512_nepoch1.pth', device=device, cifar=True)
     # SGD with Nesterov momentum
-    fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=lr_ssl, momentum=configs['momentum_ssl'], nesterov=True)
+    fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=lr_ssl, momentum=configs['momentum_ssl'],
+                                      nesterov=True)
 
     train_ssl(
         simclr_ft=simclr_ft,

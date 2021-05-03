@@ -1,6 +1,6 @@
 from models.modified_resnet import ResnetSupervised
-from data import get_augmented_dataloader
-from utils.model_utils import train_ssl, test_ssl
+from data import AugmentedLoader
+from utils.model_utils import test_ssl
 import torch
 import torch.nn as nn
 import json
@@ -32,12 +32,16 @@ if __name__ == '__main__':
     loss_fn = nn.CrossEntropyLoss()
 
     # Create data loaders
-    loader_train, loader_val = get_augmented_dataloader(
-        batch_size=configs['batch_size_small'],
-        train_mode='supervised_bm')
-    loader_test = get_augmented_dataloader(
-        batch_size=configs['batch_size_small'],
-        train_mode='test')
+    loader = AugmentedLoader(dataset_name='cifar10',
+                             train_mode='supervised_bm',
+                             batch_size=configs['batch_size_small'],
+                             cfgs=configs)
+    loader_train = loader.loader
+    loader_val = loader.valid_loader
+    loader_test = AugmentedLoader(dataset_name='cifar10',
+                                  train_mode='test',
+                                  batch_size=configs['batch_size_small'],
+                                  cfgs=configs)
 
     # # Get fixed inputs for saving the model
     # samples, _, _ = next(iter(loader_train))
@@ -83,15 +87,14 @@ if __name__ == '__main__':
             patience_counter += 1
         if patience_counter == patience:
             print('Early stopping, reverting to the previous model ...')
-            resnet = ResnetSupervised()
+            resnet = ResnetSupervised(cifar=True)
             resnet.load_state_dict(torch.load("/content/supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
             break
 
     # Test
-    resnet = ResnetSupervised()
+    resnet = ResnetSupervised(cifar=True)
     resnet.load_state_dict(torch.load("/content/supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
     test_ssl(simclr_ft=resnet,
              device=device,
              loader_test=loader_test,
              return_loss_accuracy=False)
-

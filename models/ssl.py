@@ -4,8 +4,8 @@ import torch.nn as nn
 
 
 class SimCLRFineTune(SimCLRMain):
-    def __init__(self, pretrained_path, device, n_classes=10):
-        super(SimCLRFineTune, self).__init__()
+    def __init__(self, pretrained_path, device, cifar, n_classes=10):
+        super(SimCLRFineTune, self).__init__(cifar=cifar)
         self.n_classes = n_classes
         self.pretrained_path = pretrained_path
         self.device = device

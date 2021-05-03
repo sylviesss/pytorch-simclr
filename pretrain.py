@@ -1,4 +1,4 @@
-from data import get_augmented_dataloader
+from data import AugmentedLoader
 from models.simclr import SimCLRMain
 from utils.model_utils import train_simclr, train_simclr_no_accum
 import torch
@@ -21,8 +21,12 @@ def create_parser(configs):
                         type=int,
                         help='frequency for saving checkpoint during training')
     parser.add_argument('--batch_size',
-                        default=configs['default_batch_size'],
+                        default=configs['batch_size_small'],
                         type=int)
+    parser.add_argument('--dataset',
+                        default='cifar10',
+                        type=str,
+                        help='Choose from "cifar10" or "stl10"')
     return parser
 
 
@@ -42,20 +46,22 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Get data
-    loader_train_simclr = get_augmented_dataloader(batch_size=args.batch_size,
-                                                   train_mode='pretrain')
+    loader_train_simclr = AugmentedLoader(dataset_name=args.dataset,
+                                          train_mode='pretrain',
+                                          batch_size=args.batch_size,
+                                          cfgs=configs).loader
 
-    simclr_model = SimCLRMain()
+    simclr_model = SimCLRMain(cifar=args.dataset == 'cifar10')
     base_optim = torch.optim.Adam(simclr_model.parameters(), lr=configs['lr'], weight_decay=configs['wt_decay'])
-    train_simclr_no_accum(model=simclr_model,
-                          optimizer=base_optim,
-                          loader_train=loader_train_simclr,
-                          device=device,
-                          n_epochs=args.n_epoch,
-                          save_every=args.save_every,
-                          batch_size=args.batch_size,
-                          temperature=configs['temp']
-                          )
+    train_simclr(model=simclr_model,
+                 optimizer=base_optim,
+                 loader_train=loader_train_simclr,
+                 device=device,
+                 n_epochs=args.n_epoch,
+                 save_every=args.save_every,
+                 temperature=configs['temp'],
+                 accum_steps=args.accum_steps)
+
     # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
     #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
     #  device=device, loader_lin_eval=loader_train_clf)

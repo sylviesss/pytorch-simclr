@@ -17,7 +17,8 @@ def train_simclr(model,
                  temperature,
                  save_every,
                  save_ckpt=True,
-                 checkpt_path=None):
+                 checkpt_path=None,
+                 dataset_name=''):
     """
     Pretrain a SimCLR model with ResNet50 as the encoder.
 
@@ -32,7 +33,7 @@ def train_simclr(model,
     save_every (int): frequency for saving the model.
     save_ckpt (bool): indicate whether to save checkpoints.
     checkpt_path (str): if resuming training from a checkpoint, provide the path.
-
+    dataset_name (str): to use in saved model names.
     Returns: Nothing.
     """
     if checkpt_path is not None:
@@ -50,7 +51,7 @@ def train_simclr(model,
     fixed_input = sample_inputs[:32, :, :, :]
 
     optimizer.zero_grad()
-    print_every = 100
+    print_every = len(loader_train) / 4
     model = model.to(device=device)
     for e in range(current_epoch, n_epochs):
         for t, (x1, x2, _) in enumerate(loader_train):
@@ -75,18 +76,22 @@ def train_simclr(model,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': loss.item(),
-                }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}.pth".format(
+                }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}_{}.pth".format(
                     total_batch_size,
-                    (e + 1)))
+                    (e + 1),
+                    dataset_name)
+                )
         else:
             pass
     # save the model
     model.eval()
     with torch.no_grad():
         torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
-                       "/vol/bitbucket/ss9920/project-results/simclr_model_bs{}_nepoch{}.pth".format(
+                       "/vol/bitbucket/ss9920/project-results/simclr_model_bs{}_nepoch{}_{}.pth".format(
                            total_batch_size,
-                           n_epochs))
+                           n_epochs,
+                           dataset_name)
+                       )
 
 
 def train_simclr_no_accum(model,
@@ -98,7 +103,8 @@ def train_simclr_no_accum(model,
                           save_every,
                           batch_size,
                           save_ckpt=True,
-                          checkpt_path=None):
+                          checkpt_path=None,
+                          dataset_name=''):
     """
     Pretrain a SimCLR model with ResNet50 as the encoder.
 
@@ -112,7 +118,7 @@ def train_simclr_no_accum(model,
     save_every (int): frequency for saving the model.
     save_ckpt (bool): indicate whether to save checkpoints.
     checkpt_path (str): if resuming training from a checkpoint, provide the path.
-
+    dataset_name (str): to use in saved model names.
     Returns: Nothing.
     """
     if checkpt_path is not None:
@@ -127,7 +133,7 @@ def train_simclr_no_accum(model,
     sample_inputs, _, _ = next(iter(loader_train))
     fixed_input = sample_inputs[:32, :, :, :]
 
-    print_every = len(loader_train)/4
+    print_every = len(loader_train) / 4
     model = model.to(device=device)
     for e in range(current_epoch, n_epochs):
         for t, (x1, x2, _) in enumerate(loader_train):
@@ -151,18 +157,22 @@ def train_simclr_no_accum(model,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': loss.item(),
-                }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_bs{}_nepoch{}.pth".format(
+                }, "/vol/bitbucket/ss9920/checkpoints/simclr_ckpt_no_accum_bs{}_nepoch{}_{}.pth".format(
                     batch_size,
-                    (e + 1)))
+                    (e + 1),
+                    dataset_name)
+                )
         else:
             pass
     # save the model
     model.eval()
     with torch.no_grad():
         torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
-                       "/vol/bitbucket/ss9920/project-results/simclr_model_bs{}_nepoch{}.pth".format(
+                       "/vol/bitbucket/ss9920/project-results/simclr_model_no_accum_bs{}_nepoch{}_{}.pth".format(
                            batch_size,
-                           n_epochs))
+                           n_epochs,
+                           dataset_name)
+                       )
 
 
 def feature_extraction(simclr_model,
