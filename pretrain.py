@@ -64,7 +64,8 @@ if __name__ == '__main__':
                  n_epochs=args.n_epoch,
                  save_every=args.save_every,
                  temperature=configs['temp'],
-                 accum_steps=args.accum_steps)
+                 accum_steps=args.accum_steps,
+                 path_ext=args.path_for_saving)
 
     # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
     #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
