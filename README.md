@@ -2,6 +2,13 @@
 
 An unofficial (and simplified) implementation of [SimCLR](https://arxiv.org/abs/2002.05709). 
 
+## Run 
+To pretrain the model with gradient accumulation with batch size = `n_accum * 64`, for a number of epochs = 
+`num_of_epochs`, dataset = `"cifar10"/"stl10"`, path for saving the model and checkpoints = `"/path/for/saving/"`, run
+```
+python3 pretrain.py --n_epoch=num_of_epochs --accum_steps=n_accum --dataset=dataset --path_for_saving="/path/for/saving/"
+```
+
 ## Data 
 The [CIFAR-10](https://www.cs.toronto.edu/~kriz/cifar.html) dataset is used to build a prototype. 
 
@@ -41,10 +48,10 @@ normalization)
 
 
 #### (Pre)Training
--  Currently using a `batch_size` of 512 (64x8) and gradient accumulation to allow (relatively) larger batch training 
+-  Currently using a `batch_size` of 512 and gradient accumulation to allow (relatively) larger batch training 
 on a single Nvidia Tesla GPU with 12GB RAM. 
-- **Different from the paper**, we used [Adam](https://pytorch.org/docs/stable/_modules/torch/optim/adam.html#Adam) 
-with a learning rate of 1e-3 and a `weight_decay` of 1e-6 in pretraining. [Lars](https://arxiv.org/pdf/1708.03888.pdf)
+- **Different from the paper**, [Adam](https://pytorch.org/docs/stable/_modules/torch/optim/adam.html#Adam) 
+was used with a learning rate of 1e-3 and a `weight_decay` of 1e-6 in pretraining. [Lars](https://arxiv.org/pdf/1708.03888.pdf)
 optimizer could be added later. 
 
 

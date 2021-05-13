@@ -39,8 +39,9 @@ def train_simclr(model,
     Returns: Nothing.
     """
     if checkpt_path is not None:
-        checkpoint = torch.load(checkpt_path)
+        checkpoint = torch.load(checkpt_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
+        model.to(device)
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         current_epoch = checkpoint['epoch']
     else:
@@ -126,8 +127,9 @@ def train_simclr_no_accum(model,
     Returns: Nothing.
     """
     if checkpt_path is not None:
-        checkpoint = torch.load(checkpt_path)
+        checkpoint = torch.load(checkpt_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
+        model.to(device)
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         current_epoch = checkpoint['epoch']
     else:

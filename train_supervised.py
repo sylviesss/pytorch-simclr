@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import json
 
-# TODO: add a flexible path for saving the model; right now the path is for training on the DoC machines
 if __name__ == '__main__':
     # Set a seed.
     if torch.cuda.is_available():
@@ -17,7 +16,7 @@ if __name__ == '__main__':
     with open('utils/configs.json') as f:
         configs = json.load(f)
 
-    resnet = ResnetSupervised()
+    resnet = ResnetSupervised(cifar=True)
     supervised_resnet_optim = torch.optim.Adam(resnet.parameters(),
                                                weight_decay=configs['wt_decay'])
 
@@ -82,18 +81,18 @@ if __name__ == '__main__':
             print("Found a better model. Saving...")
             resnet.eval()
             with torch.no_grad():
-                torch.save(resnet.state_dict(), "/content/supervised_bm_bs{}.pth".format(configs['batch_size_small']))
+                torch.save(resnet.state_dict(), configs['doc_path']+"supervised_bm_bs{}.pth".format(configs['batch_size_small']))
         else:
             patience_counter += 1
         if patience_counter == patience:
             print('Early stopping, reverting to the previous model ...')
             resnet = ResnetSupervised(cifar=True)
-            resnet.load_state_dict(torch.load("/content/supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
+            resnet.load_state_dict(torch.load(configs['doc_path']+"supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
             break
 
     # Test
     resnet = ResnetSupervised(cifar=True)
-    resnet.load_state_dict(torch.load("/content/supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
+    resnet.load_state_dict(torch.load("configs['doc_path']+supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
     test_ssl(simclr_ft=resnet,
              device=device,
              loader_test=loader_test,

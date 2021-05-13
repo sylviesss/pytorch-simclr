@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     # According to the paper, the learning rate can be configured this way
     # lr_ssl = 0.05 * configs['batch_size_small'] / 256
-    lr_ssl = 1e-3
+    # lr_ssl = 1e-3
 
     # Load data.
     loader_train_ssl = AugmentedLoader(dataset_name='cifar10',
@@ -29,10 +29,10 @@ if __name__ == '__main__':
                                   train_mode='test',
                                   batch_size=configs['batch_size_small'],
                                   cfgs=configs)
-
-    simclr_ft = SimCLRFineTune('/content/simclr_model_bs512_nepoch1.pth', device=device, cifar=True)
+    # TODO: need to manually change this path (tp a pretrained model) below now - change this
+    simclr_ft = SimCLRFineTune(configs['doc_path']+'simclr_model_bs512_nepoch.pth', device=device, cifar=True)
     # SGD with Nesterov momentum
-    fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=lr_ssl, momentum=configs['momentum_ssl'],
+    fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=configs["lr_ssl"], momentum=configs['momentum_ssl'],
                                       nesterov=True)
 
     train_ssl(

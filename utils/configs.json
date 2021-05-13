@@ -16,6 +16,7 @@
   "temp": 0.5,
   "wt_decay": 1e-6,
   "momentum_ssl": 0.98,
+  "lr_ssl": 0.02,
   "save_ckpt_every": 50,
   "reg_wt_lin_eval": 1e-3,
   "lbfgs_max_iter": 20,
