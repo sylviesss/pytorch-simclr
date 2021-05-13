@@ -6,6 +6,8 @@ import json
 from argparse import ArgumentParser
 
 
+### FOR CODE REVIEW (05/13/20)
+
 def create_parser(configs):
     parser = ArgumentParser()
     parser.add_argument('--n_epoch',
