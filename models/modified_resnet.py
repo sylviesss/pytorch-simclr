@@ -11,6 +11,9 @@ class ResnetEncoder(models.resnet.ResNet):
         super(ResnetEncoder, self).__init__(block=block, layers=layers)
         self.cifar = cifar
 
+        # YL: any plans to adapt this to other datasets with different input image size?
+        # perhaps consider changing the cifar flag to "replace_conv1" which can be None
+        # or a new nn.Conv2d layer?
         if self.cifar:
             self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1,
                                    padding=1, bias=False)
@@ -52,6 +55,7 @@ class ResnetSupervised(models.resnet.ResNet):
         super(ResnetSupervised, self).__init__(block=blocks,
                                                layers=layers,
                                                num_classes=n_class)
+        # YL: similar question as above
         self.cifar = cifar
         if self.cifar:
             self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1,

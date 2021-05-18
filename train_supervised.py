@@ -46,6 +46,9 @@ if __name__ == '__main__':
     # samples, _, _ = next(iter(loader_train))
     # fixed_input = samples[:batch_size_small, :, :, :]
 
+    # YL: as loader_train returns 2 batches of augmented images per iteration
+    # this means 1 epoch in below procedure is equivalent to 2 epochs in usual settings
+    # might worth noticing if comparing learning curves
     for e in range(configs['n_epoch']):
         for i, (img1, img2, targets) in enumerate(loader_train):
             resnet.train()

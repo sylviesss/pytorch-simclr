@@ -97,6 +97,7 @@ def train_simclr(model,
                        )
 
 
+# YL: this function feels redundant: should be the same as train_simclr() if setting accum_steps=1?
 def train_simclr_no_accum(model,
                           optimizer,
                           loader_train,

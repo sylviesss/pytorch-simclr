@@ -203,6 +203,7 @@ def get_class_weights(ds,
     class_counts_with_label = [(str(t), len(np.where(tgt == t)[0])) for t in np.unique(tgt)]
     samples_weight = np.array([class_counts[t] for t in tgt])
     if return_wt:
+        # YL: why using this particular reweighting method?
         return 1. / torch.from_numpy(samples_weight)
     else:
         return class_counts_with_label
