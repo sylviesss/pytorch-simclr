@@ -190,14 +190,14 @@ def compose_augmentation_supervised(mean_std=None):
 def get_class_weights(ds,
                       return_wt=True):
     """
-  Count the number of instances in each class in the dataset.
-  Args:
-   ds (torch.utils.data.datasets): torch dataset.
-   return_wt (bool): if False, return the number count of each class instead
+    Count the number of instances in each class in the dataset.
+    Args:
+    ds (torch.utils.data.datasets): torch dataset.
+    return_wt (bool): if False, return the number count of each class instead
                      of weights (reciprocal) as a tensor.
-  Returns:
-   weights/class counts (tensors)
-  """
+    Returns:
+    weights/class counts (tensors)
+    """
     tgt = np.array(ds.targets)
     class_counts = [len(np.where(tgt == t)[0]) for t in np.unique(tgt)]
     class_counts_with_label = [(str(t), len(np.where(tgt == t)[0])) for t in np.unique(tgt)]
@@ -396,6 +396,14 @@ def get_stl10_dataloader(img_size,
                                  download=True)
         # TODO: check whether to shuffle; maybe not because they have 10 predefined folds
         dataloader = DataLoader(dataset, batch_size, num_workers=2)
+    elif train_mode == 'lin_eval':
+        dataset = datasets.STL10(root=root,
+                                 split='train',
+                                 transform=compose_augmentation_test(
+                                     mean_std=mean_std
+                                 ),
+                                 download=True)
+        dataloader = DataLoader(dataset, batch_size, num_workers=2)
     elif train_mode == 'test':
         dataset = datasets.STL10(root=root,
                                  split='test',
@@ -434,9 +442,9 @@ class AugmentedLoader:
         """
         Load dataloaders.
         """
-        img_size = cfgs[self.dataset+'_size']
-        if len(cfgs[self.dataset+'_mean_std']) != 0:
-            mean_std = cfgs[self.dataset+'_mean_std']
+        img_size = cfgs[self.dataset + '_size']
+        if len(cfgs[self.dataset + '_mean_std']) != 0:
+            mean_std = cfgs[self.dataset + '_mean_std']
         else:
             mean_std = None
         if self.dataset == 'cifar10':
@@ -448,15 +456,15 @@ class AugmentedLoader:
                 ssl_label_size=cfgs['ssl_label_size'],
                 mean_std=mean_std)
         elif self.dataset == 'stl10':
-            if self.train_mode not in ['pretrain', 'fine_tune', 'test']:
-                # TODO: add a dataset for linear evaluation for stl10
-                raise NotImplementedError
-            else:
-                loader = get_stl10_dataloader(img_size=img_size,
-                                              batch_size=self.batch_size,
-                                              train_mode=self.train_mode,
-                                              root=cfgs['data_dir'],
-                                              mean_std=mean_std)
+            # if self.train_mode not in ['pretrain', 'fine_tune', 'test']:
+            #     # TODO: add a dataset for linear evaluation for stl10
+            #     raise NotImplementedError
+            # else:
+            loader = get_stl10_dataloader(img_size=img_size,
+                                          batch_size=self.batch_size,
+                                          train_mode=self.train_mode,
+                                          root=cfgs['data_dir'],
+                                          mean_std=mean_std)
         else:
             raise NotImplementedError
 
@@ -465,7 +473,3 @@ class AugmentedLoader:
             self.valid_loader = loader[1]
         else:
             self.loader = loader
-
-
-
-

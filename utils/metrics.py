@@ -49,7 +49,7 @@ def calc_corrcoeff(tensor_a,
     """
     va = tensor_a - torch.mean(tensor_a, dim=1, keepdim=True)
     vb = tensor_b - torch.mean(tensor_b, dim=1, keepdim=True)
-    cc = torch.sum(va * vb) / (torch.sqrt(torch.sum(va ** 2) * torch.sum(vb ** 2)))
+    cc = torch.sum(va * vb, dim=1) / (torch.sqrt(torch.sum(va ** 2, dim=1) * torch.sum(vb ** 2, dim=1)))
     return cc
 
 

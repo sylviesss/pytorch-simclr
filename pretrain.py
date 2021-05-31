@@ -31,6 +31,10 @@ def create_parser(configs):
                         default=configs['doc_path'],
                         type=str,
                         help='path for saving models and checkpoints (should include / at the end)')
+    parser.add_argument('resume_training_path',
+                        default=None,
+                        type=str,
+                        help='path of the model that we want to resume training with')
     return parser
 
 
@@ -65,7 +69,9 @@ if __name__ == '__main__':
                  save_every=args.save_every,
                  temperature=configs['temp'],
                  accum_steps=args.accum_steps,
-                 path_ext=args.path_for_saving)
+                 path_ext=args.path_for_saving,
+                 dataset_name=args.dataset,
+                 checkpt_path=args.resume_training_path)
 
     # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
     #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
