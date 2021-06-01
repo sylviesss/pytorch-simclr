@@ -23,7 +23,7 @@
   "ssl_label_size": 0.1,
   "n_epoch_ssl": 30,
   "cifar10_mean_std": {"mean": [0.4914, 0.4822, 0.4465], "std": [0.2023, 0.1994, 0.2010]},
-  "stl10_mean_std": {},
+  "stl10_mean_std": {"mean":  [0.4409, 0.4279, 0.3867], "std":  [0.2683, 0.2610, 0.2686]},
   "data_dir": "./datasets",
   "doc_path": "/vol/bitbucket/ss9920/project-results/"
 }

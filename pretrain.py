@@ -31,7 +31,7 @@ def create_parser(configs):
                         default=configs['doc_path'],
                         type=str,
                         help='path for saving models and checkpoints (should include / at the end)')
-    parser.add_argument('resume_training_path',
+    parser.add_argument('--resume_training_path',
                         default=None,
                         type=str,
                         help='path of the model that we want to resume training with')
