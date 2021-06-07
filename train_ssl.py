@@ -39,7 +39,7 @@ if __name__ == '__main__':
                                   train_mode='test',
                                   batch_size=configs['batch_size_small'],
                                   cfgs=configs)
-    simclr_ft = SimCLRFineTune(args.model_path, device=device, cifar=True)
+    simclr_ft = SimCLRFineTune(args.model_path, configs=configs, low_quality_img=True)
     # SGD with Nesterov momentum
     fine_tune_optim = torch.optim.SGD(simclr_ft.parameters(), lr=configs["lr_ssl"], momentum=configs['momentum_ssl'],
                                       nesterov=True)

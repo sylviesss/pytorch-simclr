@@ -210,8 +210,9 @@ def get_class_weights(ds,
 
 def get_cifar10_dataloader(img_size,
                            batch_size,
+                           val_size,
+                           train_mode,
                            root=None,
-                           train_mode='pretrain',
                            ssl_label_size=1,
                            mean_std=None):
     """
@@ -219,6 +220,7 @@ def get_cifar10_dataloader(img_size,
      root (str): directory to put data in. If None, save data in a
                 default directory.
      batch_size (int): size of minibatch.
+     val_size (float): size of validation set.
      train_mode (str): choose a mode from ['pretrain', 'lin_eval', 'fine_tune', 'test'].
          - 'pretrain': two augmented images are created for each
                        original image. Returns one dataloader for training.
@@ -226,7 +228,7 @@ def get_cifar10_dataloader(img_size,
                        augmented since for linear evaluation we only use
                        pretrained simclr model to extract features. Returns two
                        dataloaders, one for training (0.8) and one for
-                       validataion (0.2).
+                       validation (0.2).
          - 'fine_tune': only random cropping with resizing and random left-to-right
                         flipping is used to preprocess images for fine tuning.
          - 'supervised_bm': dataset for training a supervised benchmark. Apply
@@ -259,14 +261,14 @@ def get_cifar10_dataloader(img_size,
                                          train=True,
                                          transform=compose_augmentation_test(mean_std=mean_std),
                                          download=True)
-        # Return an additional validation dataloader
+        # Validation dataloader
         valid_dataset = datasets.CIFAR10(root=root,
                                          train=True,
                                          transform=compose_augmentation_test(mean_std=mean_std),
                                          download=False)  # Because it was already downloaded
         num_train = len(valid_dataset)
         indices = list(range(num_train))
-        split = int(np.floor(0 * num_train))
+        split = int(np.floor(val_size * num_train))
         # Shuffle indices before splitting into train and validation sets
         np.random.shuffle(indices)
 
@@ -286,25 +288,49 @@ def get_cifar10_dataloader(img_size,
                                   shuffle=False)
         return train_loader, valid_loader
     elif train_mode == 'fine_tune':
-        dataset = datasets.CIFAR10(root=root,
-                                   train=True,
-                                   transform=compose_augmentation_fine_tune(
-                                       img_size=img_size,
-                                       mean_std=mean_std),
-                                   download=True)
-        num_train = len(dataset)
-        # Q: What if in real life the labelled data is not uniformly distributed? Does it matter??
-        # randomly select a subset with class weights for fine tuning
-        n_training_samples = int(np.floor(ssl_label_size * num_train))
-        wts = get_class_weights(dataset)
-        weighted_sampler = sampler.WeightedRandomSampler(wts,
-                                                         num_samples=n_training_samples)
-        ssl_loader = DataLoader(dataset,
-                                batch_size=batch_size,
-                                sampler=weighted_sampler,
-                                shuffle=False,
-                                num_workers=2)
-        return ssl_loader
+        train_dataset = datasets.CIFAR10(root=root,
+                                         train=True,
+                                         transform=compose_augmentation_fine_tune(
+                                             img_size=img_size,
+                                             mean_std=mean_std),
+                                         download=True)
+        # Validation dataloader
+        valid_dataset = datasets.CIFAR10(root=root,
+                                         train=True,
+                                         transform=compose_augmentation_test(mean_std=mean_std),
+                                         download=False)
+        num_train = len(train_dataset)
+        if ssl_label_size == 1:
+            indices = list(range(num_train))
+            split = int(np.floor(val_size * num_train))
+            # Shuffle indices before splitting into train and validation sets
+            np.random.shuffle(indices)
+            train_idx, valid_idx = indices[split:], indices[:split]
+            train_sampler = sampler.SubsetRandomSampler(train_idx)
+            valid_sampler = sampler.SubsetRandomSampler(valid_idx)
+            train_loader = DataLoader(train_dataset,
+                                      batch_size=batch_size,
+                                      sampler=train_sampler,
+                                      num_workers=2,
+                                      shuffle=False)
+            valid_loader = DataLoader(valid_dataset,
+                                      batch_size=batch_size,
+                                      sampler=valid_sampler,
+                                      num_workers=2,
+                                      shuffle=False)
+            return train_loader, valid_loader
+        else:
+            # no validation set for ssl because portion of labelled data is already small
+            n_training_samples = int(np.floor(ssl_label_size * num_train))
+            wts = get_class_weights(train_dataset)
+            weighted_sampler = sampler.WeightedRandomSampler(wts,
+                                                             num_samples=n_training_samples)
+            train_loader = DataLoader(train_dataset,
+                                      batch_size=batch_size,
+                                      sampler=weighted_sampler,
+                                      shuffle=False,
+                                      num_workers=2)
+            return train_loader
     elif train_mode == 'supervised_bm':
         train_dataset = CIFAR10pair(root=root,
                                     train=True,
@@ -315,9 +341,9 @@ def get_cifar10_dataloader(img_size,
                                          train=True,
                                          transform=compose_augmentation_test(mean_std=mean_std),
                                          download=False)
-        num_train = len(valid_dataset)
+        num_train = len(train_dataset)
         indices = list(range(num_train))
-        split = int(np.floor(0.2 * num_train))  # TODO: check if validation set is needed
+        split = int(np.floor(val_size * num_train))
         # Shuffle indices before splitting into train and validation sets
         np.random.shuffle(indices)
 
@@ -354,7 +380,8 @@ def get_cifar10_dataloader(img_size,
 
 def get_stl10_dataloader(img_size,
                          batch_size,
-                         train_mode='pretrain',
+                         train_mode,
+                         val_size,
                          root=None,
                          mean_std=None):
     """
@@ -364,6 +391,7 @@ def get_stl10_dataloader(img_size,
      root (str): directory to put data in. If None, save data in a default
                  directory.
      train_mode (str): choose a mode from ['pretrain', 'fine_tune', 'test'].
+     val_size (float): size of validation set.
          - 'pretrain': two augmented images are created for each
                        original image. Returns one dataloader for training.
          - 'fine_tune': only random cropping with resizing and random left-to-right
@@ -387,15 +415,31 @@ def get_stl10_dataloader(img_size,
                             download=True)
         dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=2)
     elif train_mode == 'fine_tune':
-        dataset = datasets.STL10(root=root,
-                                 split='train',
-                                 transform=compose_augmentation_fine_tune(
-                                     img_size=img_size,
-                                     mean_std=mean_std
-                                 ),
-                                 download=True)
+        train_dataset = datasets.STL10(root=root,
+                                       split='train',
+                                       transform=compose_augmentation_fine_tune(
+                                           img_size=img_size,
+                                           mean_std=mean_std
+                                       ),
+                                       download=True)
+        # Validation dataloader
+        valid_dataset = datasets.CIFAR10(root=root,
+                                         train=True,
+                                         transform=compose_augmentation_test(mean_std=mean_std),
+                                         download=False)
+        num_train = len(train_dataset)
+        indices = list(range(num_train))
+        split = int(np.floor(val_size * num_train))
+        # Shuffle indices before splitting into train and validation sets
+        np.random.shuffle(indices)
+
+        train_idx, valid_idx = indices[split:], indices[:split]
+        train_sampler = sampler.SubsetRandomSampler(train_idx)
+        valid_sampler = sampler.SubsetRandomSampler(valid_idx)
         # TODO: check whether to shuffle; maybe not because they have 10 predefined folds
-        dataloader = DataLoader(dataset, batch_size, num_workers=2)
+        train_dataloader = DataLoader(train_dataset, batch_size, sampler=train_sampler, shuffle=False, num_workers=2)
+        valid_dataloader = DataLoader(valid_dataset, batch_size, sampler=valid_sampler, shuffle=False, num_workers=2)
+        dataloader = (train_dataloader, valid_dataloader)
     elif train_mode == 'lin_eval':
         dataset = datasets.STL10(root=root,
                                  split='train',
@@ -454,17 +498,15 @@ class AugmentedLoader:
                 root=cfgs['data_dir'],
                 train_mode=self.train_mode,
                 ssl_label_size=cfgs['ssl_label_size'],
-                mean_std=mean_std)
+                mean_std=mean_std,
+                val_size=0.2)
         elif self.dataset == 'stl10':
-            # if self.train_mode not in ['pretrain', 'fine_tune', 'test']:
-            #     # TODO: add a dataset for linear evaluation for stl10
-            #     raise NotImplementedError
-            # else:
             loader = get_stl10_dataloader(img_size=img_size,
                                           batch_size=self.batch_size,
                                           train_mode=self.train_mode,
                                           root=cfgs['data_dir'],
-                                          mean_std=mean_std)
+                                          mean_std=mean_std,
+                                          val_size=0.2)
         else:
             raise NotImplementedError
 

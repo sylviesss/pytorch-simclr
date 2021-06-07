@@ -1,22 +1,25 @@
 from torch import nn
-from models.modified_resnet import ResnetEncoder
+from models.resnets import ResnetEncoder
+from models.resnets import Dropout, ResnetEncoderDropout
 
 
 class SimCLRMain(nn.Module):
     def __init__(self,
-                 cifar,
-                 encoder_dim=2048,
-                 output_dim=128,
-                 encoder_model='resnet50',
+                 low_quality_img,
+                 configs,
+                 encoder_model='no_dropout',
                  num_proj_layer=2):
         super(SimCLRMain, self).__init__()
 
-        self.encoder_dim = encoder_dim
-        self.output_dim = output_dim
+        self.encoder_dim = configs["feature_dim"]
+        self.output_dim = configs["compressed_dim"]
         self.num_proj_layer = num_proj_layer
 
-        if encoder_model == 'resnet50':
-            self.f = ResnetEncoder(cifar=cifar)
+        if encoder_model == 'no_dropout':
+            self.f = ResnetEncoder(low_quality_img=low_quality_img)
+        elif encoder_model == 'dropout':
+            self.f = ResnetEncoderDropout(drop_prob=configs['drop_prob'],
+                                          low_quality_img=low_quality_img)
         else:
             raise NotImplementedError
 
@@ -27,8 +30,10 @@ class SimCLRMain(nn.Module):
                 proj_layers.extend([
                     nn.Linear(self.encoder_dim, self.encoder_dim, bias=False),
                     nn.BatchNorm1d(self.encoder_dim),
-                    nn.ReLU()
+                    nn.ReLU(inplace=True)
                 ])
+                if encoder_model == 'dropout':
+                    proj_layers.append(Dropout(p=configs['drop_prob']))
             else:
                 proj_layers.extend([
                     nn.Linear(self.encoder_dim, self.output_dim, bias=False),

@@ -3,6 +3,7 @@ from objective import contrastive_loss
 from tqdm import tqdm
 from torch import nn
 import json
+from utils.visualizations import plot_loss_acc
 
 with open('utils/configs.json') as f:
     configs = json.load(f)
@@ -309,7 +310,9 @@ def train_ssl(simclr_ft,
               optimizer,
               n_epochs,
               device,
-              loader_train
+              loader_train,
+              loader_val=None,
+              dataset_name='cifar10'
               ):
     """
     Fine tune a pretrained SimCLR model with a linear head.
@@ -320,15 +323,21 @@ def train_ssl(simclr_ft,
      device (torch.device): 'cuda' or 'cpu'.
      loader_train: dataloader that contains the training dataset for
                    fine tuning.
+     loader_val: optional validataion loader.
+     dataset_name (str): for saving the model.
     Returns: Nothing.
     """
-    print_every = 20
+    patience = 5
+    patience_counter = 0
+    best_acc = 0
+    total_loss, total_acc = [], []
     optimizer.zero_grad()
     simclr_ft = simclr_ft.to(device=device)
-    simclr_ft.train()
+
     loss_fn = nn.CrossEntropyLoss()
-    # TODO Add loss and accuracy plots
     for e in range(n_epochs):
+        loss_per_ep, acc_per_ep = [], []
+        simclr_ft.train()
         for i, (img, targets) in enumerate(loader_train):
             img = img.to(device=device, dtype=torch.float32)
             targets = targets.to(device=device, dtype=torch.long)
@@ -343,9 +352,30 @@ def train_ssl(simclr_ft,
             _, pred = score.max(1)
             correct = sum([pred[i] == targets[i] for i in range(targets.shape[0])])
             accuracy = 100. * correct / targets.shape[0]
-            if (i + 1) % print_every == 0:
-                print('epoch {}: | Train Loss: {:.3f} | Train Top 1 Accuracy: {:.3f}%'.format((e + 1), loss.item(),
-                                                                                              accuracy))
+            loss_per_ep.append(loss.item())
+            acc_per_ep.append(accuracy.item())
+
+        total_loss.append(sum(loss_per_ep) / len(loss_per_ep))
+        total_acc.append(sum(acc_per_ep) / len(acc_per_ep))
+        # Print training loss and accuracy every epoch
+        print('epoch {}: | Train Loss: {:.3f} | Train Top 1 Accuracy: {:.3f}%'.format((e + 1), loss.item(), accuracy))
+        if loader_val is not None:
+            val_loss, val_acc = test_ssl(simclr_ft, device, loader_val, return_loss_accuracy=True)
+            if val_acc > best_acc:
+                best_acc = val_acc
+                patience_counter = 0
+                print("Found a better model, saving...")
+                torch.save(simclr_ft.state_dict(),
+                           configs["colab_path"]+"fine_tune_{}.pth".format(
+                               dataset_name))
+            else:
+                patience_counter += 1
+                if patience_counter == patience:
+                    print("Early stopping ... ")
+                    plot_loss_acc(loss=total_loss, accuracy=total_acc)
+                    return
+    print(total_acc)
+    plot_loss_acc(loss=total_loss, accuracy=total_acc)
 
 
 def test_ssl(simclr_ft,

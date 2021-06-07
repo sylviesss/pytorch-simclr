@@ -35,6 +35,10 @@ def create_parser(configs):
                         default=None,
                         type=str,
                         help='path of the model that we want to resume training with')
+    parser.add_argument('--encoder_model',
+                        default='no_dropout',
+                        type=str,
+                        help='Indicate if we want to train a SimCLR model with dropouts')
     return parser
 
 
@@ -59,7 +63,9 @@ if __name__ == '__main__':
                                           batch_size=args.batch_size,
                                           cfgs=configs).loader
 
-    simclr_model = SimCLRMain(cifar=args.dataset == 'cifar10')
+    simclr_model = SimCLRMain(low_quality_img=args.dataset == 'cifar10',
+                              configs=configs,
+                              encoder_model=args.encoder_model)
     base_optim = torch.optim.Adam(simclr_model.parameters(), lr=configs['lr'], weight_decay=configs['wt_decay'])
     train_simclr(model=simclr_model,
                  optimizer=base_optim,
@@ -69,7 +75,7 @@ if __name__ == '__main__':
                  save_every=args.save_every,
                  temperature=configs['temp'],
                  accum_steps=args.accum_steps,
-                 path_ext=args.path_for_saving,
+                 path_ext=configs['doc_path_dropout'],  # Change this to be more flexible
                  dataset_name=args.dataset,
                  checkpt_path=args.resume_training_path)
 

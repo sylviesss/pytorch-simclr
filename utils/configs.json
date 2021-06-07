@@ -22,8 +22,11 @@
   "lbfgs_max_iter": 20,
   "ssl_label_size": 0.1,
   "n_epoch_ssl": 30,
+  "drop_prob": 0.3,
   "cifar10_mean_std": {"mean": [0.4914, 0.4822, 0.4465], "std": [0.2023, 0.1994, 0.2010]},
   "stl10_mean_std": {"mean":  [0.4409, 0.4279, 0.3867], "std":  [0.2683, 0.2610, 0.2686]},
   "data_dir": "./datasets",
-  "doc_path": "/vol/bitbucket/ss9920/project-results/"
+  "doc_path": "/vol/bitbucket/ss9920/project-results/",
+  "doc_path_dropout": "/vol/bitbucket/ss9920/project-results/dropout/",
+  "colab_path": "/content/drive/MyDrive/Colab Notebooks/project_models/"
 }

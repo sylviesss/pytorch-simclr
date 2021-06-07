@@ -1,4 +1,4 @@
-from models.modified_resnet import ResnetSupervised
+from models.resnets import ResnetSupervised
 from data import AugmentedLoader
 from utils.model_utils import test_ssl
 import torch
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     with open('utils/configs.json') as f:
         configs = json.load(f)
 
-    resnet = ResnetSupervised(cifar=True)
+    resnet = ResnetSupervised(low_quality_img=True)
     supervised_resnet_optim = torch.optim.Adam(resnet.parameters(),
                                                weight_decay=configs['wt_decay'])
 
@@ -86,12 +86,12 @@ if __name__ == '__main__':
             patience_counter += 1
         if patience_counter == patience:
             print('Early stopping, reverting to the previous model ...')
-            resnet = ResnetSupervised(cifar=True)
+            resnet = ResnetSupervised(low_quality_img=True)
             resnet.load_state_dict(torch.load(configs['doc_path']+"supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
             break
 
     # Test
-    resnet = ResnetSupervised(cifar=True)
+    resnet = ResnetSupervised(low_quality_img=True)
     resnet.load_state_dict(torch.load("configs['doc_path']+supervised_bm_bs{}.pth".format(configs['batch_size_small'])))
     test_ssl(simclr_ft=resnet,
              device=device,
