@@ -48,5 +48,8 @@ def contrastive_loss(x_batch1,
     logits = torch.cat([torch.cat([logits_ab, logits_aa], dim=-1),
                         torch.cat([logits_bb, logits_ba], dim=-1)], dim=0)
     loss = loss_fn(logits, labels)
+    _, predicted = logits.max(1)
+    correct = predicted.eq(labels).sum().item()
+    acc = 100. * correct / labels.shape[0]
 
-    return loss
+    return loss, acc

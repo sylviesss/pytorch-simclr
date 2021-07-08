@@ -39,6 +39,10 @@ def create_parser(configs):
                         default='no_dropout',
                         type=str,
                         help='Indicate if we want to train a SimCLR model with dropouts')
+    parser.add_argument('--temp',
+                        default=configs['temp'],
+                        type=float,
+                        help='Temperature in NT-XENT loss')
     return parser
 
 
@@ -61,7 +65,7 @@ if __name__ == '__main__':
     loader_train_simclr = AugmentedLoader(dataset_name=args.dataset,
                                           train_mode='pretrain',
                                           batch_size=args.batch_size,
-                                          cfgs=configs).loader
+                                          cfgs=configs)
 
     simclr_model = SimCLRMain(low_quality_img=args.dataset == 'cifar10',
                               configs=configs,
@@ -69,16 +73,14 @@ if __name__ == '__main__':
     base_optim = torch.optim.Adam(simclr_model.parameters(), lr=configs['lr'], weight_decay=configs['wt_decay'])
     train_simclr(model=simclr_model,
                  optimizer=base_optim,
-                 loader_train=loader_train_simclr,
+                 loader_train=loader_train_simclr.loader,
+                 loader_val=loader_train_simclr.valid_loader,
                  device=device,
                  n_epochs=args.n_epoch,
                  save_every=args.save_every,
-                 temperature=configs['temp'],
+                 temperature=args.temp,
                  accum_steps=args.accum_steps,
-                 path_ext=configs['doc_path_dropout'],  # Change this to be more flexible
+                 path_ext=configs['doc_path_varying_temp'],  # Change this to be more flexible
                  dataset_name=args.dataset,
                  checkpt_path=args.resume_training_path)
 
-    # TODO: Create a flexible training procedure, so we can choose among ['pretrain', 'lin_eval', 'fine_tune'] using
-    #  args with one training file features_train, targets_train = feature_extraction( simclr_model=simclr_model,
-    #  device=device, loader_lin_eval=loader_train_clf)

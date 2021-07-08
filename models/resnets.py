@@ -108,7 +108,6 @@ class DropoutNd(Module):
 
 
 class Dropout(DropoutNd):
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Always keep training = True
         return F.dropout(x, self.p, True, self.inplace)

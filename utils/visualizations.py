@@ -206,7 +206,9 @@ def denorm(x, channels=None, w=None, h=None, resize=False):
 
 def plot_loss_acc(loss: list,
                   accuracy: list,
-                  fig_size=(14, 6)):
+                  fig_size=(14, 6),
+                  title="",
+                  save_plot=False):
     """
     Plot loss and accuracy by epoch side by side.
     """
@@ -220,3 +222,6 @@ def plot_loss_acc(loss: list,
     sns.lineplot(data=df, x='Epoch', y='Accuracy', ax=ax2)
     ax2.set_title('Accuracy(%) vs. # of Epoch')
     plt.show()
+    if save_plot:
+        plt.savefig(title+".png")
+    plt.close()

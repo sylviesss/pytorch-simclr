@@ -217,8 +217,9 @@ def get_cifar10_dataloader(img_size,
                            mean_std=None):
     """
     Args:
+     img_size (int): size of image (int*int).
      root (str): directory to put data in. If None, save data in a
-                default directory.
+                 default directory.
      batch_size (int): size of minibatch.
      val_size (float): size of validation set.
      train_mode (str): choose a mode from ['pretrain', 'lin_eval', 'fine_tune', 'test'].
@@ -244,48 +245,46 @@ def get_cifar10_dataloader(img_size,
     if root is None:
         root = configs['data_dir']
 
-    # No validation set for pretrain because labels are not available
+    # Include a validation set to evaluate accuracy of the auxiliary classification task
     if train_mode == 'pretrain':
         dataset = CIFAR10pair(root=root,
                               train=True,
                               transform=compose_augmentation_train(img_size=img_size,
                                                                    mean_std=mean_std),
                               download=True)
-        loader = DataLoader(dataset,
-                            batch_size=batch_size,
-                            shuffle=True,
-                            num_workers=2)
-        return loader
+        num_all = len(dataset)
+        num_val = int(val_size * num_all)
+        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all-num_val, num_val))
+        train_loader = DataLoader(train_ds,
+                                  batch_size=batch_size,
+                                  shuffle=True,
+                                  num_workers=2)
+        valid_loader = DataLoader(valid_ds,
+                                  batch_size=batch_size,
+                                  shuffle=False,
+                                  num_workers=2)
+        return train_loader, valid_loader
     elif train_mode == 'lin_eval':
-        train_dataset = datasets.CIFAR10(root=root,
+        dataset = datasets.CIFAR10(root=root,
                                          train=True,
                                          transform=compose_augmentation_test(mean_std=mean_std),
                                          download=True)
-        # Validation dataloader
-        valid_dataset = datasets.CIFAR10(root=root,
-                                         train=True,
-                                         transform=compose_augmentation_test(mean_std=mean_std),
-                                         download=False)  # Because it was already downloaded
-        num_train = len(valid_dataset)
-        indices = list(range(num_train))
-        split = int(np.floor(val_size * num_train))
-        # Shuffle indices before splitting into train and validation sets
-        np.random.shuffle(indices)
-
-        train_idx, valid_idx = indices[split:], indices[:split]
-        train_sampler = sampler.SubsetRandomSampler(train_idx)
-        valid_sampler = sampler.SubsetRandomSampler(valid_idx)
-
-        train_loader = DataLoader(train_dataset,
+        # Validation
+        # valid_dataset = datasets.CIFAR10(root=root,
+        #                                  train=True,
+        #                                  transform=compose_augmentation_test(mean_std=mean_std),
+        #                                  download=False)  # Because it was already downloaded
+        num_all = len(dataset)
+        num_val = int(val_size * num_all)
+        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all-num_val, num_val))
+        train_loader = DataLoader(train_ds,
                                   batch_size=batch_size,
-                                  sampler=train_sampler,
-                                  num_workers=2,
-                                  shuffle=False)
-        valid_loader = DataLoader(valid_dataset,
+                                  shuffle=True,
+                                  num_workers=2)
+        valid_loader = DataLoader(valid_ds,
                                   batch_size=batch_size,
-                                  sampler=valid_sampler,
-                                  num_workers=2,
-                                  shuffle=False)
+                                  shuffle=False,
+                                  num_workers=2)
         return train_loader, valid_loader
     elif train_mode == 'fine_tune':
         train_dataset = datasets.CIFAR10(root=root,

@@ -9,9 +9,38 @@ with open('utils/configs.json') as f:
     configs = json.load(f)
 
 
+def test_auxi_classification(model,
+                             loader_val,
+                             epoch,
+                             device,
+                             accum_steps,
+                             temperature):
+    """
+    Test the classification model in SimCLR.
+    """
+    loss_lst, acc_lst = [], []
+    model.eval()
+    with torch.no_grad():
+        for x1, x2, _ in loader_val:
+            x1 = x1.to(device=device, dtype=torch.float32)
+            x2 = x2.to(device=device, dtype=torch.float32)
+            _, z1 = model(x1)
+            _, z2 = model(x2)
+            loss, acc = contrastive_loss(z1, z2, temperature)
+            loss /= accum_steps
+            loss_lst.append(loss)
+            acc_lst.append(acc)
+        # Calculate average loss and accuracy
+        avg_loss = sum(loss_lst) / len(loss_lst)
+        avg_acc = sum(acc_lst) / len(acc_lst)
+    print("Epoch: {} | avg valid loss: {:.4f} | avg valid accuracy: {:.4f}%".format(epoch + 1, avg_loss, avg_acc))
+    return avg_loss, avg_acc
+
+
 def train_simclr(model,
                  optimizer,
                  loader_train,
+                 loader_val,
                  n_epochs,
                  device,
                  accum_steps,
@@ -28,6 +57,7 @@ def train_simclr(model,
     model: A SimCLRMain model.
     optimizer: An Optimizer object we will use to train the model.
     loader_train (DataLoader): dataloader containing training data.
+    loader_val (DataLoader): dataloader containing data for validation.
     temperature (float): temperature used in NT-XENT.
     epochs (int): the number of epochs to train for.
     device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
@@ -45,8 +75,12 @@ def train_simclr(model,
         model.to(device)
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         current_epoch = checkpoint['epoch']
+        loss_array = checkpoint['losses']
+        acc_array = checkpoint['accuracies']
     else:
         current_epoch = 0
+        loss_array = {'train': [], 'valid': []}
+        acc_array = {'train': [], 'valid': []}
 
     total_batch_size = int(configs["batch_size_small"] * accum_steps)
 
@@ -55,16 +89,20 @@ def train_simclr(model,
     fixed_input = sample_inputs[:32, :, :, :]
 
     optimizer.zero_grad()
-    print_every = len(loader_train) / 4
+    print_every = int(len(loader_train) / 4)
     model = model.to(device=device)
     for e in range(current_epoch, n_epochs):
+        train_loss, train_acc = [], []
         for t, (x1, x2, _) in enumerate(loader_train):
             model.train()
             x1 = x1.to(device=device, dtype=torch.float32)
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss = contrastive_loss(z1, z2, temperature) / accum_steps
+            loss, acc = contrastive_loss(z1, z2, temperature)
+            loss /= accum_steps
+            train_loss.append(loss.item())
+            train_acc.append(acc)
             # Gradient accumulation
             loss.backward()
             if (t + 1) % accum_steps == 0:
@@ -72,111 +110,47 @@ def train_simclr(model,
                 optimizer.zero_grad()
 
             if t % print_every == 0:
-                print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
+                print(
+                    'Epoch: {} | Iteration {} | Loss = {:.4f} | Accuracy = {:.4f}%'.format(e + 1, t, loss.item(), acc))
+        # Evaluate the model after each epoch
+        val_loss, val_acc = test_auxi_classification(model,
+                                                     loader_val,
+                                                     epoch=e,
+                                                     device=device,
+                                                     accum_steps=accum_steps,
+                                                     temperature=temperature)
+        # Keep track of metrics during training and testing
+        loss_array['train'].append(sum(train_loss) / len(train_loss))
+        loss_array['valid'].append(val_loss.item())
+        acc_array['train'].append(sum(train_acc) / len(train_acc))
+        acc_array['valid'].append(val_acc)
         if save_ckpt:
             if (e + 1) % save_every == 0:
                 torch.save({
                     'epoch': e,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': loss.item(),
-                }, path_ext+"simclr_ckpt_bs{}_nepoch{}_{}.pth".format(
+                    'losses': loss_array,
+                    'accuracies': acc_array,
+                }, path_ext + "simclr_ckpt_bs{}_nepoch{}_{}.pth".format(
                     total_batch_size,
                     (e + 1),
                     dataset_name)
                 )
         else:
             pass
-    # save the model
+
+    # Plot loss and accuracy
+    plot_loss_acc(loss=loss_array["train"], accuracy=acc_array['train'],
+                  title="simclr_train_temp{}".format(temperature), save_plot=True)
+    plot_loss_acc(loss=loss_array["valid"], accuracy=acc_array['valid'],
+                  title="simclr_valid_temp{}".format(temperature), save_plot=True)
+        # save the model
     model.eval()
     with torch.no_grad():
         torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
-                       path_ext+"simclr_model_bs{}_nepoch{}_{}.pth".format(
+                       path_ext + "simclr_model_bs{}_nepoch{}_{}.pth".format(
                            total_batch_size,
-                           n_epochs,
-                           dataset_name)
-                       )
-
-
-def train_simclr_no_accum(model,
-                          optimizer,
-                          loader_train,
-                          n_epochs,
-                          device,
-                          temperature,
-                          save_every,
-                          batch_size,
-                          save_ckpt=True,
-                          checkpt_path=None,
-                          dataset_name='',
-                          path_ext=''):
-    """
-    Pretrain a SimCLR model with ResNet50 as the encoder.
-
-    Args:
-    model: A SimCLRMain model.
-    optimizer: An Optimizer object we will use to train the model.
-    loader_train (DataLoader): dataloader containing training data.
-    temperature (float): temperature used in NT-XENT.
-    epochs (int): the number of epochs to train for.
-    device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
-    save_every (int): frequency for saving the model.
-    save_ckpt (bool): indicate whether to save checkpoints.
-    checkpt_path (str): if resuming training from a checkpoint, provide the path.
-    dataset_name (str): to use in saved model names.
-    path_ext (str): path for saving models.
-    Returns: Nothing.
-    """
-    if checkpt_path is not None:
-        checkpoint = torch.load(checkpt_path, map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.to(device)
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        current_epoch = checkpoint['epoch']
-    else:
-        current_epoch = 0
-
-    # For saving the model
-    sample_inputs, _, _ = next(iter(loader_train))
-    fixed_input = sample_inputs[:32, :, :, :]
-
-    print_every = len(loader_train) / 4
-    model = model.to(device=device)
-    for e in range(current_epoch, n_epochs):
-        for t, (x1, x2, _) in enumerate(loader_train):
-            model.train()
-            x1 = x1.to(device=device, dtype=torch.float32)
-            x2 = x2.to(device=device, dtype=torch.float32)
-            _, z1 = model(x1)
-            _, z2 = model(x2)
-            loss = contrastive_loss(z1, z2, temperature)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            if t % print_every == 0:
-                print('Epoch: %d, Iteration %d, loss = %.4f' % (e, t, loss.item()))
-        if save_ckpt:
-            if (e + 1) % save_every == 0:
-                torch.save({
-                    'epoch': e,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': loss.item(),
-                }, path_ext+"simclr_ckpt_no_accum_bs{}_nepoch{}_{}.pth".format(
-                    batch_size,
-                    (e + 1),
-                    dataset_name)
-                )
-        else:
-            pass
-    # save the model
-    model.eval()
-    with torch.no_grad():
-        torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
-                       path_ext+"simclr_model_no_accum_bs{}_nepoch{}_{}.pth".format(
-                           batch_size,
                            n_epochs,
                            dataset_name)
                        )
@@ -366,7 +340,7 @@ def train_ssl(simclr_ft,
                 patience_counter = 0
                 print("Found a better model, saving...")
                 torch.save(simclr_ft.state_dict(),
-                           configs["colab_path"]+"fine_tune_{}.pth".format(
+                           configs["colab_path"] + "fine_tune_{}.pth".format(
                                dataset_name))
             else:
                 patience_counter += 1
