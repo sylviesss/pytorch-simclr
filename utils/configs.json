@@ -29,5 +29,6 @@
   "doc_path": "/vol/bitbucket/ss9920/project-results/",
   "doc_path_dropout": "/vol/bitbucket/ss9920/project-results/dropout/",
   "doc_path_varying_temp": "/vol/bitbucket/ss9920/project-results/temperature/",
-  "colab_path": "/content/drive/MyDrive/Colab Notebooks/project_models/"
+  "colab_path": "/content/drive/MyDrive/Colab Notebooks/project_models/",
+  "doc_ckpt_path": "/vol/bitbucket/ss9920/checkpoints/"
 }

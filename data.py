@@ -412,7 +412,18 @@ def get_stl10_dataloader(img_size,
                                 mean_std=mean_std
                             ),
                             download=True)
-        dataloader = DataLoader(dataset, batch_size, shuffle=True, num_workers=2)
+        num_all = len(dataset)
+        num_val = int(val_size * num_all)
+        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all-num_val, num_val))
+        train_loader = DataLoader(train_ds,
+                                  batch_size=batch_size,
+                                  shuffle=True,
+                                  num_workers=2)
+        valid_loader = DataLoader(valid_ds,
+                                  batch_size=batch_size,
+                                  shuffle=False,
+                                  num_workers=2)
+        dataloader = (train_loader, valid_loader)
     elif train_mode == 'fine_tune':
         train_dataset = datasets.STL10(root=root,
                                        split='train',

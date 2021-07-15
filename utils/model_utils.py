@@ -1,5 +1,5 @@
 import torch
-from objective import contrastive_loss
+from objective import contrastive_loss, modified_contrastive_loss
 from tqdm import tqdm
 from torch import nn
 import json
@@ -46,6 +46,7 @@ def train_simclr(model,
                  accum_steps,
                  temperature,
                  save_every,
+                 modified_network=False,
                  save_ckpt=True,
                  checkpt_path=None,
                  dataset_name='',
@@ -63,6 +64,7 @@ def train_simclr(model,
     device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
     accum_steps (int): number of steps to accumulate gradients.
     save_every (int): frequency for saving the model.
+    modified_network (bool): Indicate if we want to use the modified loss.
     save_ckpt (bool): indicate whether to save checkpoints.
     checkpt_path (str): if resuming training from a checkpoint, provide the path.
     dataset_name (str): to use in saved model names.
@@ -84,6 +86,11 @@ def train_simclr(model,
 
     total_batch_size = int(configs["batch_size_small"] * accum_steps)
 
+    if modified_network:
+        loss_fn = modified_contrastive_loss
+    else:
+        loss_fn = contrastive_loss
+
     # For saving the model
     sample_inputs, _, _ = next(iter(loader_train))
     fixed_input = sample_inputs[:32, :, :, :]
@@ -99,7 +106,7 @@ def train_simclr(model,
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss, acc = contrastive_loss(z1, z2, temperature)
+            loss, acc = loss_fn(z1, z2, temperature)
             loss /= accum_steps
             train_loss.append(loss.item())
             train_acc.append(acc)
@@ -132,10 +139,11 @@ def train_simclr(model,
                     'optimizer_state_dict': optimizer.state_dict(),
                     'losses': loss_array,
                     'accuracies': acc_array,
-                }, path_ext + "simclr_ckpt_bs{}_nepoch{}_{}.pth".format(
+                }, configs["doc_ckpt_path"] + "simclr_ckpt_bs{}_nepoch{}_{}_temp{}.pth".format(
                     total_batch_size,
                     (e + 1),
-                    dataset_name)
+                    dataset_name,
+                    str(temperature).replace('.', ''))
                 )
         else:
             pass
@@ -145,14 +153,15 @@ def train_simclr(model,
                   title="simclr_train_temp{}".format(temperature), save_plot=True)
     plot_loss_acc(loss=loss_array["valid"], accuracy=acc_array['valid'],
                   title="simclr_valid_temp{}".format(temperature), save_plot=True)
-        # save the model
+    # save the model
     model.eval()
     with torch.no_grad():
         torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
-                       path_ext + "simclr_model_bs{}_nepoch{}_{}.pth".format(
+                       path_ext + "simclr_model_bs{}_nepoch{}_{}_temp{}.pth".format(
                            total_batch_size,
                            n_epochs,
-                           dataset_name)
+                           dataset_name,
+                           str(temperature).replace('.', ''))
                        )
 
 

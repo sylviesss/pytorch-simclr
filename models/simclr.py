@@ -8,7 +8,8 @@ class SimCLRMain(nn.Module):
                  low_quality_img,
                  configs,
                  encoder_model='no_dropout',
-                 num_proj_layer=2):
+                 num_proj_layer=2,
+                 modified_network=False):
         super(SimCLRMain, self).__init__()
 
         self.encoder_dim = configs["feature_dim"]
@@ -25,20 +26,29 @@ class SimCLRMain(nn.Module):
 
         proj_layers = [nn.Flatten()]
         for i in range(self.num_proj_layer):
-            # For non-final layers, use bias and relu
             if i != self.num_proj_layer - 1:
+                # For non-final layers, use bias and relu
                 proj_layers.extend([
-                    nn.Linear(self.encoder_dim, self.encoder_dim, bias=False),
+                    nn.Linear(self.encoder_dim, self.encoder_dim, bias=True),
                     nn.BatchNorm1d(self.encoder_dim),
                     nn.ReLU(inplace=True)
                 ])
                 if encoder_model == 'dropout':
                     proj_layers.append(Dropout(p=configs['drop_prob']))
             else:
-                proj_layers.extend([
-                    nn.Linear(self.encoder_dim, self.output_dim, bias=False),
-                    nn.BatchNorm1d(self.output_dim)
-                ])
+                # Final layer
+                if not modified_network:
+                    proj_layers.extend([
+                        nn.Linear(self.encoder_dim, self.output_dim, bias=False),
+                        nn.BatchNorm1d(self.output_dim)
+                        ])
+                else:
+                    # Add Relu to ensure all raw logits are positive
+                    proj_layers.extend([
+                        nn.Linear(self.encoder_dim, self.output_dim, bias=False),
+                        nn.BatchNorm1d(self.output_dim),
+                        nn.ReLU()
+                        ])
         self.g = nn.Sequential(*proj_layers)
 
     def forward(self, x):

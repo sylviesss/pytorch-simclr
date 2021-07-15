@@ -1,6 +1,9 @@
-# SimCLR in Pytorch (wip)
+# (Probabilistic) SimCLR (wip)
 
-An unofficial (and simplified) implementation of [SimCLR](https://arxiv.org/abs/2002.05709). 
+In this project, we present an implementation of [SimCLR](https://arxiv.org/abs/2002.05709) in PyTorch. We also form
+probabilistic notion of the contrastive learning framework and derived a new loss function. The goal is to truly 
+understand how a contrastive learning model (SimCLR) learns, how to interpret learned representations, and to quantify
+and interpret uncertainty.     
 
 ## Run 
 To pretrain the model with gradient accumulation with batch size = `n_accum * 64`, for a number of epochs = 

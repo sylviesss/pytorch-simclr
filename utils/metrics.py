@@ -71,48 +71,35 @@ def bucketize_feature_values(feat_vec):
     return torch.stack(results)
 
 
-def get_similarity_metrics_pairs(contrastive_model,
-                                 supervised_model,
-                                 data_loader,
-                                 device,
-                                 use_hidden_feat=True):
+def get_similarity_metrics_contrastive(contrastive_model,
+                                       data_loader,
+                                       use_hidden_feat,
+                                       device):
     """
-    Obtain the following similarity metrics for features of a) augmented pairs of
-    images b) negative samples using 1) contrastive_model 2) supervised_model
+    Calculate the following metrics for a contrastive (SimCLR) model.
     - Normalized Euclidean Distance
     - Correlation Coefficient
-    - NMI
     - Cosine Similarity
     Args:
      contrastive_model: pretrain / fine-tuned SimCLR model
-     supervised_model: trained supervised classification model without the last
-                       fc layer.
      data_loader: dataloader with pairs of augmented images
      use_hidden_feat: indicate features from which layer of the contrastive
                       model will be used.
      device: cuda or cpu.
-    Return:
-     2 dictionaries with similarity metrics for each of the two models.
     """
-    contr_metrics = {'pos_ned': [], 'pos_cc': [], 'pos_nmi': [], 'pos_cos': [],
-                     'neg_ned': [], 'neg_cc': [], 'neg_nmi': [], 'neg_cos': []}
-    supv_metrics = {'pos_ned': [], 'pos_cc': [], 'pos_nmi': [], 'pos_cos': [],
-                    'neg_ned': [], 'neg_cc': [], 'neg_nmi': [], 'neg_cos': []}
+    contr_metrics = {'pos_ned': [], 'pos_cc': [], 'pos_cos': [],
+                     'neg_ned': [], 'neg_cc': [], 'neg_cos': []}
 
     cos_fn = nn.CosineSimilarity(dim=1)
-
-    contrastive_model = contrastive_model.to(device=device)
-    supervised_model = supervised_model.to(device=device)
-
+    contrastive_model.to(device=device)
     contrastive_model.eval()
-    supervised_model.eval()
-    t = tqdm(data_loader, desc="Calculating similarity metrics ...")
+    t_contr = tqdm(data_loader, desc="Calculating similarity metrics (contrastive)...")
+    # contrastive_model
     with torch.no_grad():
-        for img1, img2, label in t:
+        for img1, img2, label in t_contr:
             img1 = img1.to(device=device, dtype=torch.float32)
             img2 = img2.to(device=device, dtype=torch.float32)
 
-            # contrastive_model
             if use_hidden_feat:
                 contr_feat, _ = contrastive_model(img1)
                 contr_feat_pos, _ = contrastive_model(img2)
@@ -130,29 +117,41 @@ def get_similarity_metrics_pairs(contrastive_model,
 
             contr_metrics['pos_ned'].extend(contr_ned.flatten().cpu().tolist())
             contr_metrics['neg_ned'].extend(contr_ned_neg.flatten().cpu().tolist())
-            contr_nmi = [
-                normalized_mutual_info_score(
-                    bucketize_feature_values(contr_feat[i, :]).cpu().flatten().numpy(),
-                    bucketize_feature_values(contr_feat_pos[i, :]).cpu().flatten().numpy()
-                ) for i in range(contr_feat.shape[0]
-                                 )
-            ]
-            contr_nmi_neg = [
-                normalized_mutual_info_score(
-                    bucketize_feature_values(contr_feat[i, :]).cpu().flatten().numpy(),
-                    bucketize_feature_values(contr_feat_neg[i, :]).cpu().flatten().numpy()
-                ) for i in range(contr_feat.shape[0]
-                                 )
-            ]
             contr_cc = calc_corrcoeff(contr_feat, contr_feat_pos)
             contr_cc_neg = calc_corrcoeff(contr_feat, contr_feat_neg)
             contr_metrics['pos_cc'].extend(contr_cc.flatten().cpu().tolist())
             contr_metrics['neg_cc'].extend(contr_cc_neg.flatten().cpu().tolist())
-            contr_metrics['pos_nmi'].extend(contr_nmi)
-            contr_metrics['neg_nmi'].extend(contr_nmi_neg)
+
             contr_metrics['pos_cos'].extend(cos_fn(contr_feat, contr_feat_pos).flatten().cpu().tolist())
             contr_metrics['neg_cos'].extend(cos_fn(contr_feat, contr_feat_neg).flatten().cpu().tolist())
+    return contr_metrics
 
+
+def get_similarity_metrics_supv(supervised_model,
+                                data_loader,
+                                device):
+    """
+    Calculate the following metrics for a supervised (Resnet) model.
+    - Normalized Euclidean Distance
+    - Correlation Coefficient
+    - Cosine Similarity
+    Args:
+     supervised_model: pretrain / fine-tuned supervised classification model
+     data_loader: dataloader with pairs of augmented images
+     device: cuda or cpu.
+    """
+    supv_metrics = {'pos_ned': [], 'pos_cc': [], 'pos_cos': [],
+                    'neg_ned': [], 'neg_cc': [], 'neg_cos': []}
+
+    cos_fn = nn.CosineSimilarity(dim=1)
+    supervised_model = supervised_model.to(device=device)
+    supervised_model.eval()
+    # supervised model
+    t_supv = tqdm(data_loader, desc="Calculating similarity metrics (supervised)...")
+    with torch.no_grad():
+        for img1, img2, label in t_supv:
+            img1 = img1.to(device=device, dtype=torch.float32)
+            img2 = img2.to(device=device, dtype=torch.float32)
             # supervised_model
             supv_feat = supervised_model(img1)
             # Positive samples
@@ -166,29 +165,46 @@ def get_similarity_metrics_pairs(contrastive_model,
             supv_metrics['pos_ned'].extend(supv_ned.flatten().cpu().tolist())
             supv_metrics['neg_ned'].extend(supv_ned_neg.flatten().cpu().tolist())
 
-            supv_nmi = [
-                normalized_mutual_info_score(
-                    bucketize_feature_values(supv_feat[i, :]).cpu().flatten().numpy(),
-                    bucketize_feature_values(supv_feat_pos[i, :]).cpu().flatten().numpy()
-                ) for i in range(supv_feat.shape[0]
-                                 )
-            ]
-            supv_nmi_neg = [
-                normalized_mutual_info_score(
-                    bucketize_feature_values(supv_feat[i, :]).cpu().flatten().numpy(),
-                    bucketize_feature_values(supv_feat_neg[i, :]).cpu().flatten().numpy()
-                ) for i in range(supv_feat.shape[0]
-                                 )
-            ]
             supv_cc = calc_corrcoeff(supv_feat, supv_feat_pos)
             supv_cc_neg = calc_corrcoeff(supv_feat, supv_feat_neg)
             supv_metrics['pos_cc'].extend(supv_cc.flatten().cpu().tolist())
             supv_metrics['neg_cc'].extend(supv_cc_neg.flatten().cpu().tolist())
-            supv_metrics['pos_nmi'].extend(supv_nmi)
-            supv_metrics['neg_nmi'].extend(supv_nmi_neg)
             supv_metrics['pos_cos'].extend(cos_fn(supv_feat, supv_feat_pos).flatten().cpu().tolist())
             supv_metrics['neg_cos'].extend(cos_fn(supv_feat, supv_feat_neg).flatten().cpu().tolist())
+    return supv_metrics
 
+
+def get_similarity_metrics_pairs(contrastive_model,
+                                 supervised_model,
+                                 data_loader_contr,
+                                 data_loader_supv,
+                                 use_hidden_feat,
+                                 device):
+    """
+    Obtain the following similarity metrics for features of a) augmented pairs of
+    images b) negative samples using 1) contrastive_model 2) supervised_model
+    - Normalized Euclidean Distance
+    - Correlation Coefficient
+    - Cosine Similarity
+    Args:
+     contrastive_model: pretrain / fine-tuned SimCLR model
+     supervised_model: trained supervised classfication model without the last
+                       fc layer.
+     data_loader_contr: dataloader with pairs of augmented images for the contrastive model
+     data_loader_supv: dataloader with pairs of augmented images for the supervised model
+     use_hidden_feat: indicate features from which layer of the contrastive
+                      model will be used.
+     device: cuda or cpu.
+    Return:
+     2 dictionaries with similarity metrics for each of the two models.
+    """
+    contr_metrics = get_similarity_metrics_contrastive(contrastive_model,
+                                                       data_loader_contr,
+                                                       use_hidden_feat,
+                                                       device)
+    supv_metrics = get_similarity_metrics_supv(supervised_model,
+                                               data_loader_supv,
+                                               device)
     return contr_metrics, supv_metrics
 
 
