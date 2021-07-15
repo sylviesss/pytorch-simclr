@@ -64,8 +64,9 @@ def modified_contrastive_loss(x_batch1,
     Args:
         x_batch* (tensor): minibatches of augmented samples of shape
                           (batch_size, out_dim).
-        *Args: placeholder for extra arguments so that it is convenient to switch between contrastive_loss and
-               modified_contrastive_loss. (Because I am using the same variable (loss_fn) in the training function)
+        *Args: placeholder for extra arguments so that it is convenient to switch between contrastive_loss
+               (has more arguments) and modified_contrastive_loss. (Because I am using the same variable (loss_fn)
+               for either of these loss functions in train_simclr)
       """
     batch_size = x_batch1.shape[0]
     # L1 normalization along the axis with channels
