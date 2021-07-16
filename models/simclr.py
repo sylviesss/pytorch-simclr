@@ -8,8 +8,7 @@ class SimCLRMain(nn.Module):
                  low_quality_img,
                  configs,
                  encoder_model='no_dropout',
-                 num_proj_layer=2,
-                 modified_network=False):
+                 num_proj_layer=2):
         super(SimCLRMain, self).__init__()
 
         self.encoder_dim = configs["feature_dim"]
@@ -37,18 +36,10 @@ class SimCLRMain(nn.Module):
                     proj_layers.append(Dropout(p=configs['drop_prob']))
             else:
                 # Final layer
-                if not modified_network:
-                    proj_layers.extend([
-                        nn.Linear(self.encoder_dim, self.output_dim, bias=False),
-                        nn.BatchNorm1d(self.output_dim)
-                        ])
-                else:
-                    # Add Relu to ensure all raw logits are positive
-                    proj_layers.extend([
-                        nn.Linear(self.encoder_dim, self.output_dim, bias=False),
-                        nn.BatchNorm1d(self.output_dim),
-                        nn.ReLU()
-                        ])
+                proj_layers.extend([
+                    nn.Linear(self.encoder_dim, self.output_dim, bias=False),
+                    nn.BatchNorm1d(self.output_dim)
+                    ])
         self.g = nn.Sequential(*proj_layers)
 
     def forward(self, x):

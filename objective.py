@@ -68,6 +68,10 @@ def modified_contrastive_loss(x_batch1,
                (has more arguments) and modified_contrastive_loss. (Because I am using the same variable (loss_fn)
                for either of these loss functions in train_simclr)
       """
+    # Make sure all raw logits are non-negative
+    x_batch1 = torch.clamp(x_batch1, min=0)
+    x_batch2 = torch.clamp(x_batch2, min=0)
+
     batch_size = x_batch1.shape[0]
     # L1 normalization along the axis with channels
     x1 = F.normalize(x_batch1, p=1, dim=1)

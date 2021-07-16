@@ -29,6 +29,7 @@
   "doc_path": "/vol/bitbucket/ss9920/project-results/",
   "doc_path_dropout": "/vol/bitbucket/ss9920/project-results/dropout/",
   "doc_path_varying_temp": "/vol/bitbucket/ss9920/project-results/temperature/",
+  "doc_path_modified_loss": "/vol/bitbucket/ss9920/project-results/mod-loss/",
   "colab_path": "/content/drive/MyDrive/Colab Notebooks/project_models/",
   "doc_ckpt_path": "/vol/bitbucket/ss9920/checkpoints/"
 }

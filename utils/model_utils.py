@@ -46,7 +46,7 @@ def train_simclr(model,
                  accum_steps,
                  temperature,
                  save_every,
-                 modified_network=False,
+                 modified_loss=False,
                  save_ckpt=True,
                  checkpt_path=None,
                  dataset_name='',
@@ -64,7 +64,7 @@ def train_simclr(model,
     device (torch.device): 'cuda' or 'cpu' depending on the availability of GPU.
     accum_steps (int): number of steps to accumulate gradients.
     save_every (int): frequency for saving the model.
-    modified_network (bool): Indicate if we want to use the modified loss.
+    modified_loss (bool): Indicate if we want to use the modified loss.
     save_ckpt (bool): indicate whether to save checkpoints.
     checkpt_path (str): if resuming training from a checkpoint, provide the path.
     dataset_name (str): to use in saved model names.
@@ -86,10 +86,14 @@ def train_simclr(model,
 
     total_batch_size = int(configs["batch_size_small"] * accum_steps)
 
-    if modified_network:
+    if modified_loss:
         loss_fn = modified_contrastive_loss
+        ckpt_name = "simclr_mod_loss_ckpt_bs{}_nepoch{}_{}_temp{}.pth"
+        model_name = "simclr_mod_loss_bs{}_nepoch{}_{}_temp{}.pth"
     else:
         loss_fn = contrastive_loss
+        ckpt_name = "simclr_ckpt_bs{}_nepoch{}_{}_temp{}.pth"
+        model_name = "simclr_model_bs{}_nepoch{}_{}_temp{}.pth"
 
     # For saving the model
     sample_inputs, _, _ = next(iter(loader_train))
@@ -139,7 +143,7 @@ def train_simclr(model,
                     'optimizer_state_dict': optimizer.state_dict(),
                     'losses': loss_array,
                     'accuracies': acc_array,
-                }, configs["doc_ckpt_path"] + "simclr_ckpt_bs{}_nepoch{}_{}_temp{}.pth".format(
+                }, configs["doc_ckpt_path"] + ckpt_name.format(
                     total_batch_size,
                     (e + 1),
                     dataset_name,
@@ -157,7 +161,7 @@ def train_simclr(model,
     model.eval()
     with torch.no_grad():
         torch.jit.save(torch.jit.trace(model, fixed_input.to(device), check_trace=False),
-                       path_ext + "simclr_model_bs{}_nepoch{}_{}_temp{}.pth".format(
+                       path_ext + model_name.format(
                            total_batch_size,
                            n_epochs,
                            dataset_name,
