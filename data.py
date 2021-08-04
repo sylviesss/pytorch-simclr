@@ -10,15 +10,19 @@ with open('utils/configs.json') as f:
 
 
 class CIFAR10pair(datasets.CIFAR10):
-    def __init__(self, root, train, transform, download):
+    def __init__(self, root, train, transform, download,
+                 anchor=False, mean_std=configs["cifar10_mean_std"]):
         super(CIFAR10pair, self).__init__(root=root,
                                           train=train,
                                           transform=transform,
                                           download=download)
+        # Indicate if we want a pair of an original image and a transformed image
+        self.anchor = anchor
+        self.mean_std = mean_std
 
     def __getitem__(self, idx):
         """
-        Modify the method __getitem__
+        Modifying the method __getitem__
         (https://pytorch.org/vision/stable/_modules/torchvision/datasets/cifar.html#CIFAR10)
         in class CIFAR10 to produce two transformed images per original image,
         along with their target.
@@ -28,22 +32,37 @@ class CIFAR10pair(datasets.CIFAR10):
           tuple: (augmented_img1, augmented_img2, target) where target is index
           of the target class.
         """
+        # If no transformation is specified (when using anchor=True), we convert
+        # PIL images to tensors and normalize them
+        basic_transf = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=self.mean_std["mean"],
+                                 std=self.mean_std["std"])
+        ])
         img, target = self.data[idx], self.targets[idx]
         img = Image.fromarray(img)
         if self.transform is not None:
-            img1 = self.transform(img)
-            img2 = self.transform(img)
+            if self.anchor is False:
+                img1 = self.transform(img)
+                img2 = self.transform(img)
+            else:
+                img1 = basic_transf(img)
+                img2 = self.transform(img)
         else:
             img1, img2 = img, img
         return img1, img2, target
 
 
 class STL10pair(datasets.STL10):
-    def __init__(self, root, split, transform, download):
+    def __init__(self, root, split, transform, download,
+                 anchor=False, mean_std=configs["stl10_mean_std"]):
         super(STL10pair, self).__init__(root=root,
                                         split=split,
                                         transform=transform,
                                         download=download)
+        # Indicate if we want a pair of an original image and a transformed image
+        self.anchor = anchor
+        self.mean_std = mean_std
 
     def __getitem__(self, idx):
         """
@@ -57,11 +76,22 @@ class STL10pair(datasets.STL10):
           tuple: (augmented_img1, augmented_img2, target) where target is index
           of the target class.
         """
+        # If no transformation is specified (when using anchor=True), we convert
+        # PIL images to tensors and normalize them
+        basic_transf = transforms.Compose([
+                                           transforms.ToTensor(),
+                                           transforms.Normalize(mean=self.mean_std["mean"],
+                                                                std=self.mean_std["std"])
+        ])
         img, target = self.data[idx], self.labels[idx]
         img = Image.fromarray(np.transpose(img, (1, 2, 0)))
         if self.transform is not None:
-            img1 = self.transform(img)
-            img2 = self.transform(img)
+            if self.anchor is False:
+                img1 = self.transform(img)
+                img2 = self.transform(img)
+            else:
+                img1 = basic_transf(img)
+                img2 = self.transform(img)
         else:
             img1, img2 = img, img
         return img1, img2, target
@@ -208,6 +238,36 @@ def get_class_weights(ds,
         return class_counts_with_label
 
 
+def get_test_cifar_auxiliary_task(mean_std,
+                                  img_size,
+                                  batch_size,
+                                  root=None):
+    """
+    Return a dataloader (CIFAR10) specifically for testing pretrained models on
+    the auxiliary classification task. This test data set differs from the one
+    we get from get_cifar10_dataloader in that
+        1) it applies the same augmentations as the one that is applied to the
+            dataset for pretraining, and
+        2) it returns pairs of augmented images as opposed to one image per label.
+    """
+    np.random.seed(42)
+    if root is None:
+        root = configs['data_dir']
+
+    dataset = CIFAR10pair(root=root,
+                          train=False,
+                          transform=compose_augmentation_train(
+                              img_size=img_size,
+                              mean_std=mean_std
+                              ),
+                          download=True)
+    loader = DataLoader(dataset,
+                        batch_size=batch_size,
+                        shuffle=False,
+                        num_workers=2)
+    return loader
+
+
 def get_cifar10_dataloader(img_size,
                            batch_size,
                            val_size,
@@ -254,7 +314,7 @@ def get_cifar10_dataloader(img_size,
                               download=True)
         num_all = len(dataset)
         num_val = int(val_size * num_all)
-        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all-num_val, num_val))
+        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all - num_val, num_val))
         train_loader = DataLoader(train_ds,
                                   batch_size=batch_size,
                                   shuffle=True,
@@ -266,9 +326,9 @@ def get_cifar10_dataloader(img_size,
         return train_loader, valid_loader
     elif train_mode == 'lin_eval':
         dataset = datasets.CIFAR10(root=root,
-                                         train=True,
-                                         transform=compose_augmentation_test(mean_std=mean_std),
-                                         download=True)
+                                   train=True,
+                                   transform=compose_augmentation_test(mean_std=mean_std),
+                                   download=True)
         # Validation
         # valid_dataset = datasets.CIFAR10(root=root,
         #                                  train=True,
@@ -276,7 +336,7 @@ def get_cifar10_dataloader(img_size,
         #                                  download=False)  # Because it was already downloaded
         num_all = len(dataset)
         num_val = int(val_size * num_all)
-        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all-num_val, num_val))
+        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all - num_val, num_val))
         train_loader = DataLoader(train_ds,
                                   batch_size=batch_size,
                                   shuffle=True,
@@ -414,7 +474,7 @@ def get_stl10_dataloader(img_size,
                             download=True)
         num_all = len(dataset)
         num_val = int(val_size * num_all)
-        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all-num_val, num_val))
+        train_ds, valid_ds = torch.utils.data.random_split(dataset, (num_all - num_val, num_val))
         train_loader = DataLoader(train_ds,
                                   batch_size=batch_size,
                                   shuffle=True,

@@ -43,6 +43,13 @@ def create_parser(configs):
                         default=configs['temp'],
                         type=float,
                         help='Temperature in NT-XENT loss')
+    parser.add_argument('--modified_loss',
+                        default=False,
+                        type=bool,
+                        help='Indicate if we want to use the modified loss during training')
+    parser.add_argument('--save_ckpt',
+                        default=True,
+                        type=bool)
     return parser
 
 
@@ -80,7 +87,9 @@ if __name__ == '__main__':
                  save_every=args.save_every,
                  temperature=args.temp,
                  accum_steps=args.accum_steps,
-                 path_ext=configs['doc_path_varying_temp'],  # Change this to be more flexible
+                 modified_loss=args.modified_loss,  # Use modified loss
+                 save_ckpt=args.save_ckpt,
+                 path_ext=configs['doc_path_modified_loss'],  # Change this to be more flexible
                  dataset_name=args.dataset,
                  checkpt_path=args.resume_training_path)
 

@@ -14,7 +14,8 @@ def test_auxi_classification(model,
                              epoch,
                              device,
                              accum_steps,
-                             temperature):
+                             temperature,
+                             loss_fn):
     """
     Test the classification model in SimCLR.
     """
@@ -26,7 +27,7 @@ def test_auxi_classification(model,
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss, acc = contrastive_loss(z1, z2, temperature)
+            loss, acc = loss_fn(z1, z2, temperature=temperature)
             loss /= accum_steps
             loss_lst.append(loss)
             acc_lst.append(acc)
@@ -88,6 +89,7 @@ def train_simclr(model,
 
     if modified_loss:
         loss_fn = modified_contrastive_loss
+        # TODO: make this more flexible
         ckpt_name = "simclr_mod_loss_ckpt_bs{}_nepoch{}_{}_temp{}.pth"
         model_name = "simclr_mod_loss_bs{}_nepoch{}_{}_temp{}.pth"
     else:
@@ -110,7 +112,7 @@ def train_simclr(model,
             x2 = x2.to(device=device, dtype=torch.float32)
             _, z1 = model(x1)
             _, z2 = model(x2)
-            loss, acc = loss_fn(z1, z2, temperature)
+            loss, acc = loss_fn(z1, z2, temperature=temperature)
             loss /= accum_steps
             train_loss.append(loss.item())
             train_acc.append(acc)
@@ -129,7 +131,8 @@ def train_simclr(model,
                                                      epoch=e,
                                                      device=device,
                                                      accum_steps=accum_steps,
-                                                     temperature=temperature)
+                                                     temperature=temperature,
+                                                     loss_fn=loss_fn)
         # Keep track of metrics during training and testing
         loss_array['train'].append(sum(train_loss) / len(train_loss))
         loss_array['valid'].append(val_loss.item())
@@ -154,9 +157,10 @@ def train_simclr(model,
 
     # Plot loss and accuracy
     plot_loss_acc(loss=loss_array["train"], accuracy=acc_array['train'],
-                  title="simclr_train_temp{}".format(temperature), save_plot=True)
+                  title="acc_loss_train", save_plot=True
+                  )
     plot_loss_acc(loss=loss_array["valid"], accuracy=acc_array['valid'],
-                  title="simclr_valid_temp{}".format(temperature), save_plot=True)
+                  title="acc_loss_valid", save_plot=True)
     # save the model
     model.eval()
     with torch.no_grad():
@@ -165,7 +169,7 @@ def train_simclr(model,
                            total_batch_size,
                            n_epochs,
                            dataset_name,
-                           str(temperature).replace('.', ''))
+                           str(temperature).replace('.', ''), str())
                        )
 
 

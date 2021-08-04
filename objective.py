@@ -57,20 +57,20 @@ def contrastive_loss(x_batch1,
 
 def modified_contrastive_loss(x_batch1,
                               x_batch2,
-                              *Args):
+                              **kwargs):
     """
     Calculate the modified contrastive loss derived from the optimal classifier
     and accuracy of the auxiliary classification task.
     Args:
         x_batch* (tensor): minibatches of augmented samples of shape
                           (batch_size, out_dim).
-        *Args: placeholder for extra arguments so that it is convenient to switch between contrastive_loss
-               (has more arguments) and modified_contrastive_loss. (Because I am using the same variable (loss_fn)
-               for either of these loss functions in train_simclr)
       """
+    temp = kwargs.get("temperature", 1.0)
     # Make sure all raw logits are non-negative
-    x_batch1 = torch.clamp(x_batch1, min=0)
-    x_batch2 = torch.clamp(x_batch2, min=0)
+    x_batch1 = F.softplus(x_batch1, beta=0.8)
+    x_batch2 = F.softplus(x_batch2, beta=0.8)
+    # F.relu_(x_batch1)
+    # F.relu_(x_batch2)
 
     batch_size = x_batch1.shape[0]
     # L1 normalization along the axis with channels
@@ -83,11 +83,11 @@ def modified_contrastive_loss(x_batch1,
     # Calculate 2 sets of of cosine similarities and combine them
     # Calculate log logits - this is valid because all raw logits are positive
     # Need to clamp the values because log(0) goes to negative infinity
-    # TODO: what value is appropriate to use as a min?
-    logits_ab = torch.clamp(x1 @ x2.t(), min=1e-5)
-    logits_ba = torch.clamp(x2 @ x1.t(), min=1e-5)
-    log_logits_ab = torch.log(logits_ab)
-    log_logits_ba = torch.log(logits_ba)
+
+    logits_ab = torch.clamp(x1 @ x2.t(), min=1e-4)
+    logits_ba = torch.clamp(x2 @ x1.t(), min=1e-4)
+    log_logits_ab = torch.log(logits_ab) / temp
+    log_logits_ba = torch.log(logits_ba) / temp
 
     # Use sum of losses to be consistent with the tf implementation
     # (Reduction.SUM_BY_NONZERO_WEIGHTS)

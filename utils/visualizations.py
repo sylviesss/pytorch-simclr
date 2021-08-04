@@ -71,14 +71,14 @@ def plot_pos_neg_metrics(contrastive_metrics: dict,
     sns.set_style('darkgrid')
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=fig_size)
     sns.kdeplot(contrastive_metrics[pos_metric], ax=ax1, shade=True,
-                label='contrastive - postive')
+                label='contrastive - positive')
     sns.kdeplot(contrastive_metrics[neg_metric], ax=ax1, shade=True,
                 label='contrastive - negative')
     ax1.set_title(contr_title)
     ax1.legend()
 
     sns.kdeplot(supervised_metrics[pos_metric], ax=ax2, shade=True,
-                label='supervised - postive')
+                label='supervised - positive')
     sns.kdeplot(supervised_metrics[neg_metric], ax=ax2, shade=True,
                 label='supervised - negative')
     ax2.set_title(supv_title)

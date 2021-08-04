@@ -1,8 +1,10 @@
-from sklearn.metrics import normalized_mutual_info_score
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import transforms
+from torch.utils.data import DataLoader
 from tqdm import tqdm as tqdm
+from data import CIFAR10pair
 
 
 # TODO: check calc_ned ** 2 == calc_nsed
@@ -208,3 +210,63 @@ def get_similarity_metrics_pairs(contrastive_model,
     return contr_metrics, supv_metrics
 
 
+def get_loader_for_analogy_analysis(batch_size,
+                                    dataset,
+                                    cfgs):
+    """
+    Helper function for get_representation_analogy.
+    Args:
+     batch_size: batch size of the dataloader.
+     dataset: "cifar10" / "stl10".
+     cfgs: configurations.
+    Return:
+     A dataloader constructed from one of the customized dataset class
+     (CIFAR10pair/STL10pair), where one image is the original image,
+     and the other one is an augmented image. Obtained from function
+     get_loader_for_analogy_analysis().
+    """
+    mean_std = cfgs[dataset + "_mean_std"]
+    transf = [transforms.ToTensor(), transforms.RandomHorizontalFlip(p=1), transforms.Normalize(mean=mean_std['mean'],
+                                                                                                std=mean_std['std'])]
+    transf = transforms.Compose(transf)
+    ds = CIFAR10pair(root=cfgs['data_dir'], train=True, transform=transf, download=True, anchor=True)
+    loader = DataLoader(batch_size=batch_size, dataset=ds, shuffle=True)
+    return loader
+
+
+def get_representation_analogy(model1,
+                               model2,
+                               batch_size,
+                               dataset,
+                               cfgs):
+    """
+    Given two models, make forward passes with one batch of data from a
+    dataloader and measure the difference between pairs.
+    Args:
+     batch_size: batch size of the dataloader.
+     dataset: "cifar10" / "stl10".
+     cfgs: configurations.
+    """
+    resu = {}
+    loader = get_loader_for_analogy_analysis(batch_size, dataset, cfgs)
+    # Get one batch of images; samples1 contains original images while samples2 contains augmented images
+    samples1, samples2, _ = next(iter(loader))
+
+    model1.eval()
+    model2.eval()
+    # make sure the two models are on the same device (cpu); not using gpu because only evaluating one batch
+    model1.to(device='cpu')
+    model2.to(device='cpu')
+    L1_diff = nn.L1Loss(reduction='mean')
+    L2_diff = nn.MSELoss(reduction='mean')
+    with torch.no_grad():
+        repr1_orig, _ = model1(samples1)
+        repr1_augmented, _ = model1(samples2)
+        repr2_orig, _ = model2(samples1)
+        repr2_augmented, _ = model2(samples2)
+
+        resu["model1_l1"] = L1_diff(repr1_orig, repr1_augmented).item()
+        resu["model1_l2"] = L2_diff(repr1_orig, repr1_augmented).item()
+        resu["model2_l1"] = L1_diff(repr2_orig, repr2_augmented).item()
+        resu["model2_l2"] = L2_diff(repr2_orig, repr2_augmented).item()
+    return resu
