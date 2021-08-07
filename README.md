@@ -1,15 +1,15 @@
-# (Probabilistic) SimCLR (wip)
+# (Probabilistic) SimCLR
 
 In this project, we present an implementation of [SimCLR](https://arxiv.org/abs/2002.05709) in PyTorch. We also form
-probabilistic notion of the contrastive learning framework and derived a new loss function. The goal is to truly 
+probabilistic notion of the contrastive learning framework and derive a new loss function. The goal is to truly 
 understand how a contrastive learning model (SimCLR) learns, how to interpret learned representations, and to quantify
 and interpret uncertainty.     
 
 ## Run 
 To pretrain the model with gradient accumulation with batch size = `n_accum * 64`, for a number of epochs = 
-`num_of_epochs`, dataset = `"cifar10"/"stl10"`, path for saving the model and checkpoints = `"/path/for/saving/"`, run
+`num_of_epochs`, dataset = `"cifar10"/"stl10"`, path for saving the model and checkpoints = `"/path/for/saving/"`, use_new_loss, run
 ```
-python3 pretrain.py --n_epoch=num_of_epochs --accum_steps=n_accum --dataset=dataset --path_for_saving="/path/for/saving/"
+python3 pretrain.py --n_epoch=num_of_epochs --accum_steps=n_accum --dataset=dataset --path_for_saving="/path/for/saving/" --new_loss=use_new_loss
 ```
 
 ## Data 
@@ -44,7 +44,7 @@ the smaller resolution of images in CIFAR10.
 
 
 #### Main Model
-The basic model for pretraining consist of:
+The basic model for pretraining consists of:
 - Encoder `f` (`ResnetEncoder`)
 - Projection head `g` (2-layer (could adjust this in further experiments) MLP with a RELU activation and batch 
 normalization)
