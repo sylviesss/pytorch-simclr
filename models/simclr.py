@@ -45,7 +45,3 @@ class SimCLRMain(nn.Module):
         z = self.g(h)
         return h, z
 
-    def forward(self, x):
-        h = self.f(x)
-        z = self.g(h)
-        return h, z
