@@ -86,21 +86,42 @@ def plot_pos_neg_metrics(contrastive_metrics: dict,
     plt.show()
 
 
+def get_dataloader_tsne(train_mode,
+                        batch_size,
+                        dataset,
+                        cfgs):
+    """
+    Helper function for get_tsne_representations and get_tsne_representations_simclr
+    :param train_mode: "pretrain"/"valid"/"test"/"supervised"
+    :param batch_size: number of datapoints we want to show in the TSNE plot
+    :param dataset: "cifar10"/"stl10"
+    :param cfgs: configurations (configs.json)
+    :return: a dataloader
+    """
+    loader = AugmentedLoader(dataset_name=dataset,
+                             train_mode=train_mode,
+                             batch_size=batch_size,
+                             cfgs=cfgs)
+    return loader.loader
+
+
 def get_tsne_representations_simclr(model,
+                                    data_loader,
                                     device,
-                                    dataset_name,
-                                    configs,
-                                    perplexity=50,
-                                    batch_size=3000,
+                                    perplexity=30,
                                     show_plot=True,
                                     feat_used='h'):
-    # Get data
-    data_loader = AugmentedLoader(dataset_name=dataset_name,
-                                  batch_size=batch_size,
-                                  cfgs=configs,
-                                  train_mode='pretrain')
-
-    sample_inputs1, sample_inputs2, sample_label = next(iter(data_loader.loader))
+    """
+    Calculate TSNE vectors using model and data from data_loader.
+    :param model: pretrained model.
+    :param data_loader: result from get_dataloader_tsne.
+    :param device: "cuda"/"cpu".
+    :param perplexity: (approx.) number of neighbors in the tsne plot
+    :param show_plot: show plot if True.
+    :param feat_used: "h" (hidden representations) / "z" (final representations)
+    """
+    # sample_inputs1, sample_inputs2, sample_label = next(iter(data_loader))
+    sample_inputs1, _, sample_label = next(iter(data_loader))
     model = model.to(device=device)
     # Get latent representations of test data
     model.eval()
@@ -140,19 +161,12 @@ def get_tsne_representations_simclr(model,
 
 
 def get_tsne_representations(model,
+                             data_loader,
                              device,
-                             dataset_name,
-                             configs,
-                             perplexity=50,
-                             batch_size=3000,
+                             perplexity=30,
                              show_plot=True):
-    # Get data
-    data_loader = AugmentedLoader(dataset_name=dataset_name,
-                                  batch_size=batch_size,
-                                  cfgs=configs,
-                                  train_mode='pretrain')
-
-    sample_inputs1, sample_inputs2, sample_label = next(iter(data_loader.loader))
+    # sample_inputs1, sample_inputs2, sample_label = next(iter(data_loader))
+    sample_inputs1, sample_label = next(iter(data_loader))
     model = model.to(device=device)
     # Get latent representations of test data
     model.eval()
@@ -212,7 +226,7 @@ def plot_loss_acc(loss: list,
     """
     Plot loss and accuracy by epoch side by side.
     """
-    ep = [int(i) for i in list(range(1, len(loss)+1))]
+    ep = [int(i) for i in list(range(1, len(loss) + 1))]
     df = pd.DataFrame({'Loss': loss, 'Accuracy': accuracy, 'Epoch': ep})
     sns.set_style('darkgrid')
     fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=fig_size)
@@ -223,5 +237,5 @@ def plot_loss_acc(loss: list,
     ax2.set_title('Accuracy(%) vs. # of Epoch')
     plt.show()
     if save_plot:
-        plt.savefig(title+".png")
+        plt.savefig(title + ".png")
     plt.close()

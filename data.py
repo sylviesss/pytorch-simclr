@@ -552,6 +552,9 @@ class AugmentedLoader:
 
         self._load(cfgs)
 
+    def __len__(self):
+        return int(self.loader is not None) + int(self.valid_loader is not None)
+
     def _load(self, cfgs):
         """
         Load dataloaders.
