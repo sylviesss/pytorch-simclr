@@ -84,13 +84,11 @@ def modified_contrastive_loss(x_batch1,
     # Calculate log logits - this is valid because all raw logits are positive
     # Need to clamp the values because log(0) goes to negative infinity
 
-    logits_ab = torch.clamp(x1 @ x2.t(), min=1e-4)
-    logits_ba = torch.clamp(x2 @ x1.t(), min=1e-4)
+    logits_ab = torch.clamp(x1 @ x2.t() * batch_size, min=1e-4)
+    logits_ba = torch.clamp(x2 @ x1.t() * batch_size, min=1e-4)
     log_logits_ab = torch.log(logits_ab) / temp
     log_logits_ba = torch.log(logits_ba) / temp
 
-    # Use sum of losses to be consistent with the tf implementation
-    # (Reduction.SUM_BY_NONZERO_WEIGHTS)
     loss_fn = nn.CrossEntropyLoss(reduction='mean')
     logits = torch.cat([log_logits_ab, log_logits_ba], dim=0)
     loss = loss_fn(logits, labels)
